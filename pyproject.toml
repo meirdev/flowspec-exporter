@@ -1,0 +1,18 @@
+[project]
+name = "router-flowspec-parser"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ntc-templates>=7.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "ruff>=0.9.7",
+]
+
+[tool.ruff]
+lint.extend-select = ["I"]

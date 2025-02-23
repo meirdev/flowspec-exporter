@@ -1,0 +1,3 @@
+Template, Hostname, Platform, Command
+cisco_ios_show_flowspec_vrf_all_detail.textfsm, .*, cisco_ios, show flowspec vrf all ipv4|ipv6 detail
+juniper_junos_show_firewall_filter_detail.textfsm, .*, juniper_junos, show firewall filter detail

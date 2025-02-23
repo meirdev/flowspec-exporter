@@ -1,0 +1,24 @@
+Value DEST ([^\s,]+)
+Value SOURCE ([^\s,]+)
+Value PROTO ((,?(((=|>=|<=)\d+)&?))+)
+Value DPORT ((,?(((=|>=|<=)\d+)&?))+)
+Value SPORT ((,?(((=|>=|<=)\d+)&?))+)
+Value LENGTH ((,?(((=|>=|<=)\d+)&?))+)
+Value TCP_FLAGS (~0x[0-9a-f]+)
+Value ACTION (Traffic-rate|Redirect|transmit)
+Value TRAFFIC_RATE_BPS (\d+)
+Value MATCHED_PACKETS (\d+)
+Value MATCHED_BYTES (\d+)
+Value TRANSMITTED_PACKETS (\d+)
+Value TRANSMITTED_BYTES (\d+)
+Value DROPPED_PACKETS (\d+)
+Value DROPPED_BYTES (\d+)
+
+Start
+  ^\s*Flow\s*:((Dest:${DEST}|Source:${SOURCE}|Proto:${PROTO}|DPort:${DPORT}|SPort:${SPORT}|Length:${LENGTH}|TCPFlags:${TCP_FLAGS}),?)+
+  ^\s*Actions\s*:${ACTION}: ${TRAFFIC_RATE_BPS} bps.*
+  ^\s*Actions\s*:${ACTION}.*
+  ^\s*Statistics.*
+  ^\s*Matched\s*:\s*${MATCHED_PACKETS}/${MATCHED_BYTES}
+  ^\s*Transmitted\s*:\s*${TRANSMITTED_PACKETS}/${TRANSMITTED_BYTES}
+  ^\s*Dropped\s*:\s*${DROPPED_PACKETS}/${DROPPED_BYTES} -> Record

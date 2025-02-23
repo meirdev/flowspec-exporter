@@ -1,0 +1,16 @@
+Value DST ([^\s,]+)
+Value SRC ([^\s,]+)
+Value PROTO ((,?(((=|>=|<=)\d+)&?))+)
+Value DSTPORT ((,?(((=|>=|<=)\d+)&?))+)
+Value SRCPORT ((,?(((=|>=|<=)\d+)&?))+)
+Value LEN (((((=|>=|<=)\d+)&?),?)+)
+Value TCP_FLAGS (\d+)
+Value BYTES (\d+)
+Value PACKETS (\d+)
+Value RATE_LIMIT (\d+K)
+
+Start
+  ^\s*Counters:
+  ^\s*Policers:
+  ^\s*Name\s+Bytes\s+Packets
+  ^\s*(${RATE_LIMIT}_)?${DST},${SRC}(,?(proto${PROTO}|dstport${DSTPORT}|srcport${SRCPORT}|tcp-flag:${TCP_FLAGS}|len${LEN}))*.*\s+${BYTES}\s+${PACKETS} -> Record
