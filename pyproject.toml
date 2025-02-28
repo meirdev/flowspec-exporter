@@ -5,11 +5,18 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "asyncssh>=2.20.0",
     "ntc-templates>=7.7.0",
+    "polars>=1.23.0",
+    "python-json-logger>=3.2.1",
+    "pytimeparse>=1.1.8",
+    "streamlit>=1.42.2",
+    "tenacity>=9.0.0",
 ]
 
 [dependency-groups]
 dev = [
+    "mypy>=1.15.0",
     "pytest>=8.3.4",
     "ruff>=0.9.7",
 ]

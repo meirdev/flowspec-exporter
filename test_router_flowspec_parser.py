@@ -47,7 +47,9 @@ AFI: IPv4
 
 
 def test_parse_flow_spec_juniper_junos():
-    entries = parse_flow_spec_juniper_junos(JUNIPER_JUNOS_STDOUT)
+    entries = parse_flow_spec_juniper_junos(
+        JUNIPER_JUNOS_STDOUT, "show firewall filter detail __flowspec_default_inet__"
+    )
 
     assert entries == [
         FlowSpec(
@@ -57,6 +59,8 @@ def test_parse_flow_spec_juniper_junos():
             length=[Eq(180)],
             matched_bytes=395784,
             matched_packets=6780,
+            dropped_bytes=395784,
+            dropped_packets=6780,
             action=Action.DISCARD,
         ),
         FlowSpec(
@@ -66,6 +70,8 @@ def test_parse_flow_spec_juniper_junos():
             src_port=[Between(1026, 65499)],
             matched_bytes=213018385651,
             matched_packets=204410643,
+            dropped_bytes=213018385651,
+            dropped_packets=204410643,
             action=Action.DISCARD,
         ),
         FlowSpec(
@@ -73,6 +79,8 @@ def test_parse_flow_spec_juniper_junos():
             dst_port=[Eq(40), Eq(50), Eq(60), Between(70, 80)],
             matched_bytes=100568357,
             matched_packets=94618,
+            dropped_bytes=100568357,
+            dropped_packets=94618,
             action=Action.RATE_LIMIT,
             rate_limit_bps=6291000,
         ),
@@ -80,7 +88,9 @@ def test_parse_flow_spec_juniper_junos():
 
 
 def test_parse_flow_spec_cisco_ios():
-    entries = parse_flow_spec_cisco_ios(CISCO_IOS_STDOUT)
+    entries = parse_flow_spec_cisco_ios(
+        CISCO_IOS_STDOUT, "show flowspec vrf all ipv4 detail"
+    )
 
     assert entries == [
         FlowSpec(

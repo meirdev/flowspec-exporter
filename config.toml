@@ -1,0 +1,10 @@
+[[routers]]
+name = "Test"
+platform = "juniper_junos"
+scrape_interval = "1m"
+scrape_timeout = "10s"
+ssh_host = "127.0.0.1"
+ssh_port = 22
+ssh_username = "admin"
+ssh_password = "admin"
+ssh_command = "show firewall filter detail __flowspec_default_inet__"
