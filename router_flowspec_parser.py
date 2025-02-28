@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, Any
 
-from ntc_templates.parse import parse_output
+from ntc_templates.parse import parse_output  # type: ignore
 
 DIR = Path(__file__).absolute().parent
 
@@ -64,6 +64,23 @@ class FlowSpec:
     dropped_packets: int | None = None
     dropped_bytes: int | None = None
 
+    def str_filter(self) -> str:
+        return ",".join(
+            f"{attr}:{_stringify(getattr(self, attr))}"
+            for attr in (
+                "dst_addr",
+                "src_addr",
+                "dst_port",
+                "src_port",
+                "proto",
+                "tcp_flags",
+                "length",
+                "action",
+                "rate_limit_bps",
+            )
+            if getattr(self, attr) is not None
+        )
+
 
 def _parse_value(value: str) -> list[Value]:
     values = []
@@ -83,10 +100,8 @@ def _parse_value(value: str) -> list[Value]:
     return values
 
 
-def parse_flow_spec_cisco_ios(data: str) -> list[FlowSpec]:
-    entries = parse_output(
-        platform="cisco_ios", command="show flowspec vrf all ipv4 detail", data=data
-    )
+def parse_flow_spec_cisco_ios(data: str, command: str) -> list[FlowSpec]:
+    entries = parse_output(platform="cisco_ios", command=command, data=data)
 
     flow_specs = []
 
@@ -132,10 +147,10 @@ def parse_flow_spec_cisco_ios(data: str) -> list[FlowSpec]:
     return flow_specs
 
 
-def parse_flow_spec_juniper_junos(data: str) -> list[FlowSpec]:
+def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
     entries = parse_output(
         platform="juniper_junos",
-        command="show firewall filter detail __flowspec_default_inet__",
+        command=command,
         data=data,
     )
 
@@ -169,17 +184,25 @@ def parse_flow_spec_juniper_junos(data: str) -> list[FlowSpec]:
 
         flow_spec.matched_packets = int(entry["packets"])
         flow_spec.matched_bytes = int(entry["bytes"])
+        flow_spec.dropped_packets = int(entry["packets"])
+        flow_spec.dropped_bytes = int(entry["bytes"])
 
         flow_specs.append(flow_spec)
 
     return flow_specs
 
 
-def parse_flow_spec(platform: Platform, data: str) -> list[FlowSpec]:
+def parse_flow_spec(platform: Platform, data: str, command: str) -> list[FlowSpec]:
     match platform:
         case "cisco_ios":
-            return parse_flow_spec_cisco_ios(data)
+            return parse_flow_spec_cisco_ios(data, command)
         case "juniper_junos":
-            return parse_flow_spec_juniper_junos(data)
+            return parse_flow_spec_juniper_junos(data, command)
         case _:
             raise ValueError(f"Unsupported platform: {platform}")
+
+
+def _stringify(value: Any) -> str:
+    if isinstance(value, list):
+        return "|".join(map(_stringify, value))
+    return str(value)

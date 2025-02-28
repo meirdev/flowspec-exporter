@@ -22,15 +22,22 @@ def main() -> None:
     arg_parser.add_argument(
         "-p", "--platform", required=True, choices=["juniper_junos", "cisco_ios"]
     )
+    arg_parser.add_argument(
+        "-c", "--command", type=str, help="Command used to fetch the flow spec data"
+    )
 
     args = arg_parser.parse_args()
 
     data = args.file.read()
 
     if args.platform == "juniper_junos":
-        entries = router_flowspec_parser.parse_flow_spec_juniper_junos(data)
+        command = (
+            args.command or "show firewall filter detail __flowspec_default_inet__"
+        )
+        entries = router_flowspec_parser.parse_flow_spec_juniper_junos(data, command)
     elif args.platform == "cisco_ios":
-        entries = router_flowspec_parser.parse_flow_spec_cisco_ios(data)
+        command = args.command or "show flowspec vrf all ipv4 detail"
+        entries = router_flowspec_parser.parse_flow_spec_cisco_ios(data, command)
     else:
         raise ValueError(f"Unsupported platform: {args.platform}")
 
