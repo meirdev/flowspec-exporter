@@ -10,6 +10,7 @@ dependencies = [
     "polars>=1.23.0",
     "python-json-logger>=3.2.1",
     "pytimeparse>=1.1.8",
+    "streamlit-autorefresh>=1.0.1",
     "streamlit>=1.42.2",
     "tenacity>=9.0.0",
 ]

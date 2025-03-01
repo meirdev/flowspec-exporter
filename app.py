@@ -1,8 +1,8 @@
-import time
 import sqlite3
 
 import polars as pl
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 REFRESH_RATE = 60
 
@@ -10,16 +10,22 @@ db_conn = sqlite3.connect("db.sqlite")
 
 st.set_page_config(layout="wide")
 
+st_autorefresh(interval=REFRESH_RATE * 1000)
+
 placeholder = st.empty()
 
-while True:
-    with placeholder.container():
-        df = pl.read_database(
-            query="SELECT * FROM flowspecs WHERE timestamp > DATETIME('now', '-4 hours')",
-            connection=db_conn,
-        )
+with placeholder.container():
+    df = pl.read_database(
+        query="SELECT * FROM flowspecs WHERE timestamp > DATETIME('now', '-4 hours')",
+        connection=db_conn,
+    )
 
-        df = df.with_columns(pl.col("timestamp").str.to_datetime()).select(
+    if df.is_empty():
+        st.write("No data available")
+    else:
+        router = st.selectbox("Router", df.select("router").unique())
+
+        df_router = df.filter(pl.col("router") == router).with_columns(pl.col("timestamp").str.to_datetime()).select(
             "timestamp",
             "router",
             "filter",
@@ -27,42 +33,53 @@ while True:
             "dropped_packets",
         )
 
-        for (router_name,), df_router in df.partition_by(
-            "router", as_dict=True
-        ).items():
-            st.write(f"## {router_name}")
-
-            df_router_ = df_router.select(
-                "timestamp",
-                "filter",
-                pl.col("timestamp")
-                .diff()
-                .over("filter", order_by="timestamp")
-                .alias("diff_timestamp"),
-                pl.col("dropped_bytes")
-                .diff()
-                .over("filter", order_by="timestamp")
-                .alias("diff_dropped_bytes"),
-                pl.col("dropped_packets")
-                .diff()
-                .over("filter", order_by="timestamp")
-                .alias("diff_dropped_packets"),
-            ).with_columns(
-                (
-                    pl.col("diff_dropped_bytes")
-                    // pl.col("diff_timestamp").dt.total_seconds()
-                    // 1e6
-                ).alias("dropped_mbps"),
-                (
-                    pl.col("diff_dropped_packets")
-                    // pl.col("diff_timestamp").dt.total_seconds()
-                ).alias("dropped_pps"),
+        if df_router.is_empty():
+            st.write("No data available")
+        else:
+            df_router_ = (
+                df_router.select(
+                    "timestamp",
+                    "filter",
+                    pl.col("timestamp")
+                    .diff()
+                    .over("filter", order_by="timestamp")
+                    .alias("diff_timestamp"),
+                    pl.col("dropped_bytes")
+                    .diff()
+                    .over("filter", order_by="timestamp")
+                    .alias("diff_dropped_bytes"),
+                    pl.col("dropped_packets")
+                    .diff()
+                    .over("filter", order_by="timestamp")
+                    .alias("diff_dropped_packets"),
+                )
+                .with_columns(
+                    pl.when(pl.col("diff_dropped_bytes") < 0)
+                    .then(0)
+                    .otherwise(pl.col("diff_dropped_bytes"))
+                    .alias("diff_dropped_bytes"),
+                    pl.when(pl.col("diff_dropped_packets") < 0)
+                    .then(0)
+                    .otherwise(pl.col("diff_dropped_packets"))
+                    .alias("diff_dropped_packets"),
+                )
+                .with_columns(
+                    (
+                        pl.col("diff_dropped_bytes")
+                        // pl.col("diff_timestamp").dt.total_seconds()
+                        // 1e6
+                    ).alias("dropped_mbps"),
+                    (
+                        pl.col("diff_dropped_packets")
+                        // pl.col("diff_timestamp").dt.total_seconds()
+                    ).alias("dropped_pps"),
+                )
             )
 
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader("Dropped Traffic")
+                st.write("Dropped Traffic")
                 st.line_chart(
                     df_router_.select("timestamp", "dropped_mbps", "filter"),
                     x_label="Time",
@@ -73,7 +90,7 @@ while True:
                 )
 
             with col2:
-                st.subheader("Dropped Packets")
+                st.write("Dropped Packets")
                 st.line_chart(
                     df_router_.select("timestamp", "dropped_pps", "filter"),
                     x_label="Time",
@@ -99,5 +116,3 @@ while True:
                     "dropped_packets",
                 ],
             )
-
-    time.sleep(REFRESH_RATE)
