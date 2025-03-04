@@ -1,6 +1,6 @@
 # FlowSpec parser
 
-Parses for FlowSpec rules as they appear in the routers output.
+A parser for BGP FlowSpec rules as they appear in the routers output.
 
 ## How to use
 
