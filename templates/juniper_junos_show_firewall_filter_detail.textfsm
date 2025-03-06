@@ -7,7 +7,7 @@ Value LEN (((((=|>=|<=)\d+)&?),?)+)
 Value TCP_FLAGS (\d+)
 Value BYTES (\d+)
 Value PACKETS (\d+)
-Value RATE_LIMIT (\d+K)
+Value RATE_LIMIT (\d+(K|M|G))
 
 Start
   ^\s*Counters:
