@@ -83,7 +83,7 @@ class FlowSpec:
 
 
 def _parse_value(value: str) -> list[Value]:
-    values = []
+    values: list[Value] = []
 
     for val in value.split(","):
         op: type[Value]
