@@ -2,13 +2,12 @@ from ipaddress import IPv4Network
 
 from router_flowspec_parser import (
     Action,
-    FlowSpec,
-    Eq,
     Between,
-    parse_flow_spec_juniper_junos,
+    Eq,
+    FlowSpec,
     parse_flow_spec_cisco_ios,
+    parse_flow_spec_juniper_junos,
 )
-
 
 JUNIPER_JUNOS_STDOUT = """
 Filter: __flowspec_default_inet__                              
