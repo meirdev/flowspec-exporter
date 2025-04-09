@@ -24,3 +24,6 @@ dev = [
 
 [tool.ruff]
 lint.extend-select = ["I"]
+
+[tool.pyright]
+reportUnknownVariableType = false
