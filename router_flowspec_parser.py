@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
-from typing import Literal, TypeAlias, Any
+from typing import Any, Literal, TypeAlias
 
 from ntc_templates.parse import parse_output  # type: ignore
 
