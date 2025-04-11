@@ -15,15 +15,15 @@ dependencies = [
     "tenacity>=9.0.0",
 ]
 
-[dependency-groups]
-dev = [
-    "mypy>=1.15.0",
-    "pytest>=8.3.4",
-    "ruff>=0.9.7",
-]
-
 [tool.ruff]
 lint.extend-select = ["I"]
 
 [tool.pyright]
 reportUnknownVariableType = false
+
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.5",
+]
