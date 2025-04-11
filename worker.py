@@ -1,10 +1,10 @@
 import argparse
 import asyncio
 import logging
-import tomllib
 import sqlite3
-from datetime import datetime, timezone
+import tomllib
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import cast
 
 import asyncssh
@@ -12,7 +12,7 @@ import tenacity
 from pythonjsonlogger.json import JsonFormatter
 from pytimeparse import parse as parse_time  # type: ignore
 
-from router_flowspec_parser import parse_flow_spec, Platform
+from router_flowspec_parser import Platform, parse_flow_spec
 
 DEFAULT_SCRAP_INTERVAL = "1m"
 DEFAULT_SCRAP_TIMEOUT = "10s"
@@ -49,6 +49,9 @@ class Router:
 async def scrape(db_conn: sqlite3.Connection, router: Router):
     scrape_interval = parse_time(router.scrape_interval)
     scrape_timeout = parse_time(router.scrape_timeout)
+
+    assert scrape_interval is not None, "Invalid scrape interval"
+    assert scrape_timeout is not None, "Invalid scrape timeout"
 
     logger.debug("Trying to connect to router", extra={"router": router.name})
 
