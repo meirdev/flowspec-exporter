@@ -15,12 +15,12 @@ DIR = Path(__file__).absolute().parent
 os.environ["NTC_TEMPLATES_DIR"] = str(DIR / "templates")
 
 
-@dataclass(order=True)
+@dataclass
 class Value(ABC):
     pass
 
 
-@dataclass(order=True)
+@dataclass
 class Eq(Value):
     value: int
 
@@ -28,7 +28,7 @@ class Eq(Value):
         return f"={self.value}"
 
 
-@dataclass(order=True)
+@dataclass
 class Between(Value):
     start: int
     end: int
@@ -107,7 +107,7 @@ def _parse_value(value: str) -> list[Value]:
 
         values.append(op(*map(int, match.groups())))
 
-    return sorted(values)
+    return values
 
 
 def parse_flow_spec_cisco_ios(data: str, command: str) -> list[FlowSpec]:
