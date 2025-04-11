@@ -46,6 +46,14 @@ class Action(StrEnum):
     RATE_LIMIT = "rate-limit"
 
 
+class Fragment(StrEnum):
+    NOT_A_FRAGMENT = "not-a-fragment"
+    DONT_FRAGMENT = "dont-fragment"
+    IS_FRAGMENT = "is-fragment"
+    FIRST_FRAGMENT = "first-fragment"
+    LAST_FRAGMENT = "last-fragment"
+
+
 @dataclass
 class FlowSpec:
     dst_addr: IPv4Network | IPv6Network | None = None
@@ -54,6 +62,7 @@ class FlowSpec:
     src_port: list[Value] | None = None
     proto: list[Value] | None = None
     tcp_flags: int | None = None
+    fragment: Fragment | None = None
     length: list[Value] | None = None
     action: Action | None = None
     rate_limit_bps: int | None = None
@@ -74,6 +83,7 @@ class FlowSpec:
                 "src_port",
                 "proto",
                 "tcp_flags",
+                "fragment",
                 "length",
                 "action",
                 "rate_limit_bps",
@@ -122,6 +132,17 @@ def parse_flow_spec_cisco_ios(data: str, command: str) -> list[FlowSpec]:
             flow_spec.length = _parse_value(entry["length"])
         if entry["tcp_flags"]:
             flow_spec.tcp_flags = int(entry["tcp_flags"][1:], 16)
+
+        if entry["frag"]:
+            match entry["frag"]:
+                case "~DF":
+                    flow_spec.fragment = Fragment.DONT_FRAGMENT
+                case "~FF":
+                    flow_spec.fragment = Fragment.FIRST_FRAGMENT
+                case "~LF":
+                    flow_spec.fragment = Fragment.LAST_FRAGMENT
+                case "~IsF":
+                    flow_spec.fragment = Fragment.IS_FRAGMENT
 
         match entry["action"]:
             case "transmit":

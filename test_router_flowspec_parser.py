@@ -5,6 +5,7 @@ from router_flowspec_parser import (
     Between,
     Eq,
     FlowSpec,
+    Fragment,
     parse_flow_spec_cisco_ios,
     parse_flow_spec_juniper_junos,
 )
@@ -24,7 +25,7 @@ CISCO_IOS_STDOUT = """
 Fri Feb 21 12:00:00.000 IST
 
 AFI: IPv4
-  Flow           :Dest:27.146.73.155/32,Proto:=6,DPort:=443,TCPFlags:~0x10,Length:=52
+  Flow           :Dest:27.146.73.155/32,Proto:=6,DPort:=443,TCPFlags:~0x10,Length:=52,Frag:~IsF
     Actions      :Traffic-rate: 5242880 bps  (bgp.1)
     Statistics                        (packets/bytes)
       Matched             :                1376/63296              
@@ -97,6 +98,7 @@ def test_parse_flow_spec_cisco_ios():
             proto=[Eq(6)],
             dst_port=[Eq(443)],
             tcp_flags=0x10,
+            fragment=Fragment.IS_FRAGMENT,
             length=[Eq(52)],
             matched_bytes=63296,
             matched_packets=1376,

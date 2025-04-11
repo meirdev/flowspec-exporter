@@ -5,6 +5,7 @@ Value DPORT ((,?(((=|>=|<=)\d+)&?))+)
 Value SPORT ((,?(((=|>=|<=)\d+)&?))+)
 Value LENGTH ((,?(((=|>=|<=)\d+)&?))+)
 Value TCP_FLAGS (~0x[0-9a-f]+)
+Value FRAG (~[a-zA-Z]+)
 Value ACTION (Traffic-rate|Redirect|transmit)
 Value TRAFFIC_RATE_BPS (\d+)
 Value MATCHED_PACKETS (\d+)
@@ -15,7 +16,7 @@ Value DROPPED_PACKETS (\d+)
 Value DROPPED_BYTES (\d+)
 
 Start
-  ^\s*Flow\s*:((Dest:${DEST}|Source:${SOURCE}|Proto:${PROTO}|DPort:${DPORT}|SPort:${SPORT}|Length:${LENGTH}|TCPFlags:${TCP_FLAGS}),?)+
+  ^\s*Flow\s*:((Dest:${DEST}|Source:${SOURCE}|Proto:${PROTO}|DPort:${DPORT}|SPort:${SPORT}|Length:${LENGTH}|TCPFlags:${TCP_FLAGS}|Frag:${FRAG}),?)+
   ^\s*Actions\s*:${ACTION}: ${TRAFFIC_RATE_BPS} bps.*
   ^\s*Actions\s*:${ACTION}.*
   ^\s*Statistics.*
