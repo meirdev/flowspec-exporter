@@ -14,6 +14,12 @@ DIR = Path(__file__).absolute().parent
 
 os.environ["NTC_TEMPLATES_DIR"] = str(DIR / "templates")
 
+COMMANDS = {
+    "cisco_ios": "show flowspec vrf all ipv4 detail",
+    "juniper_junos": "show firewall filter detail __flowspec_default_inet__",
+    "arista_eos": "show flow-spec ipv4",
+}
+
 
 @dataclass
 class Value(ABC):
@@ -37,7 +43,7 @@ class Between(Value):
         return f">={self.start}&<={self.end}"
 
 
-Platform: TypeAlias = Literal["cisco_ios", "juniper_junos"]
+Platform: TypeAlias = Literal["cisco_ios", "juniper_junos", "arista_eos"]
 
 
 class Action(StrEnum):
@@ -99,6 +105,8 @@ def _parse_value(value: str) -> list[Value]:
         op: type[Value]
 
         if match := re.match(r">=(\d+)&<=(\d+)", val):
+            op = Between
+        elif match := re.match(r">(\d+)&<(\d+)", val):
             op = Between
         elif match := re.match(r"=(\d+)", val):
             op = Eq
@@ -226,14 +234,74 @@ def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
     return flow_specs
 
 
+def parse_flow_spec_arista_eos(data: str, command: str) -> list[FlowSpec]:
+    entries = parse_output(
+        platform="arista_eos",
+        command=command,
+        data=data,
+    )
+
+    flow_specs = []
+
+    for entry in entries:
+        flow_spec = FlowSpec()
+
+        if entry["dest"] and entry["dest"] != "*":
+            with suppress(ValueError):
+                flow_spec.dst_addr = ip_network(entry["dest"], strict=False)
+        if entry["source"] and entry["source"] != "*":
+            with suppress(ValueError):
+                flow_spec.src_addr = ip_network(entry["source"], strict=False)
+        if entry["ip"]:
+            flow_spec.proto = _parse_value(entry["ip"])
+        if entry["dp"]:
+            flow_spec.dst_port = _parse_value(entry["dp"])
+        if entry["sp"]:
+            flow_spec.src_port = _parse_value(entry["sp"])
+        if entry["len"]:
+            flow_spec.length = _parse_value(entry["len"])
+        if entry["tcp"]:
+            flow_spec.tcp_flags = int(entry["tcp"])
+
+        if entry["rate_limit"]:
+            flow_spec.action = Action.RATE_LIMIT
+
+            number, size = entry["rate_limit"].split(" ")
+
+            match size:
+                case "bps":
+                    size = 1
+                case "Kbps":
+                    size = 1_000
+                case "Mbps":
+                    size = 1_000_000
+                case "Gbps":
+                    size = 1_000_000_000
+                case _:
+                    raise ValueError(f"Invalid rate limit size: {size}")
+
+            flow_spec.rate_limit_bps = int(round(float(number) * size))
+        else:
+            flow_spec.action = Action.DISCARD
+
+        flow_spec.matched_packets = int(entry["packets"] or 0)
+        flow_spec.matched_bytes = int(entry["bytes"] or 0)
+        flow_spec.dropped_packets = int(entry["packets"] or 0)
+        flow_spec.dropped_bytes = int(entry["bytes"] or 0)
+
+        flow_specs.append(flow_spec)
+
+    return flow_specs
+
+
 def parse_flow_spec(platform: Platform, data: str, command: str) -> list[FlowSpec]:
     match platform:
         case "cisco_ios":
             return parse_flow_spec_cisco_ios(data, command)
         case "juniper_junos":
             return parse_flow_spec_juniper_junos(data, command)
-        case _:
-            raise ValueError(f"Unsupported platform: {platform}")
+        case "arista_eos":
+            return parse_flow_spec_arista_eos(data, command)
 
 
 def _stringify(value: Any) -> str:
