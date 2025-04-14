@@ -276,6 +276,19 @@ def parse_flow_spec_arista_eos(data: str, command: str) -> list[FlowSpec]:
         if entry["tcp"]:
             flow_spec.tcp_flags = int(entry["tcp"])
 
+        if entry["frag"]:
+            match entry["frag"]:
+                case "0":
+                    flow_spec.fragment = Fragment.NOT_A_FRAGMENT
+                case "1":
+                    flow_spec.fragment = Fragment.DONT_FRAGMENT
+                case "2":
+                    flow_spec.fragment = Fragment.IS_FRAGMENT
+                case "4":
+                    flow_spec.fragment = Fragment.FIRST_FRAGMENT
+                case "8":
+                    flow_spec.fragment = Fragment.LAST_FRAGMENT
+
         if entry["rate_limit"]:
             flow_spec.action = Action.RATE_LIMIT
 
