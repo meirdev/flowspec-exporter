@@ -205,6 +205,19 @@ def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
         if entry["tcp_flags"]:
             flow_spec.tcp_flags = int(entry["tcp_flags"], 16)
 
+        if entry["frag"]:
+            match entry["frag"]:
+                case "01":
+                    flow_spec.fragment = Fragment.DONT_FRAGMENT
+                case "02":
+                    flow_spec.fragment = Fragment.IS_FRAGMENT
+                case "04":
+                    flow_spec.fragment = Fragment.FIRST_FRAGMENT
+                case "08":
+                    flow_spec.fragment = Fragment.LAST_FRAGMENT
+                case "10":
+                    flow_spec.fragment = Fragment.NOT_A_FRAGMENT
+
         if entry["rate_limit"]:
             flow_spec.action = Action.RATE_LIMIT
 
