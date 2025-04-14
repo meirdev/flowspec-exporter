@@ -1,3 +1,4 @@
+import itertools
 import os
 import re
 from abc import ABC
@@ -176,6 +177,20 @@ def parse_flow_spec_cisco_ios(data: str, command: str) -> list[FlowSpec]:
     return flow_specs
 
 
+def _fix_ip_network(value: str) -> str:
+    # Fixes the IP address format to ensure it has 4 octets
+    if "/" in value:
+        ip_addr, mask = value.split("/")
+        ip_addr = ".".join(
+            i
+            for i, _ in itertools.zip_longest(
+                ip_addr.split("."), ["0", "0", "0", "0"], fillvalue="0"
+            )
+        )
+        return f"{ip_addr}/{mask}"
+    return value
+
+
 def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
     entries = parse_output(
         platform="juniper_junos",
@@ -190,10 +205,14 @@ def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
 
         if entry["dst"] and entry["dst"] != "*":
             with suppress(ValueError):
-                flow_spec.dst_addr = ip_network(entry["dst"], strict=False)
+                flow_spec.dst_addr = ip_network(
+                    _fix_ip_network(entry["dst"]), strict=False
+                )
         if entry["src"] and entry["src"] != "*":
             with suppress(ValueError):
-                flow_spec.src_addr = ip_network(entry["src"], strict=False)
+                flow_spec.src_addr = ip_network(
+                    _fix_ip_network(entry["src"]), strict=False
+                )
         if entry["proto"]:
             flow_spec.proto = _parse_value(entry["proto"])
         if entry["dstport"]:
