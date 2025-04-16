@@ -221,8 +221,8 @@ def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
             flow_spec.src_port = _parse_value(entry["srcport"])
         if entry["len"]:
             flow_spec.length = _parse_value(entry["len"])
-        if entry["tcp_flags"]:
-            flow_spec.tcp_flags = int(entry["tcp_flags"], 16)
+        if entry["tcp_flag"]:
+            flow_spec.tcp_flags = int(entry["tcp_flag"], 16)
 
         if entry["frag"]:
             match entry["frag"]:
