@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 from ntc_templates.parse import parse_output  # type: ignore
 
@@ -44,7 +44,7 @@ class Between(Value):
         return f">={self.start}&<={self.end}"
 
 
-Platform: TypeAlias = Literal["cisco_ios", "juniper_junos", "arista_eos"]
+type Platform = Literal["cisco_ios", "juniper_junos", "arista_eos"]
 
 
 class Action(StrEnum):
