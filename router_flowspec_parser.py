@@ -82,18 +82,18 @@ class FlowSpec:
 
     def str_filter(self) -> str:
         return ",".join(
-            f"{attr}:{_stringify(getattr(self, attr))}"
-            for attr in (
-                "dst_addr",
-                "src_addr",
-                "dst_port",
-                "src_port",
-                "proto",
-                "tcp_flags",
-                "fragment",
-                "length",
-                "action",
-                "rate_limit_bps",
+            f"{key}:{_stringify(getattr(self, attr))}"
+            for (key, attr) in (
+                ("dst", "dst_addr"),
+                ("src", "src_addr"),
+                ("dstport", "dst_port"),
+                ("srcport", "src_port"),
+                ("proto", "proto"),
+                ("tcp-flags", "tcp_flags"),
+                ("frag", "fragment"),
+                ("len", "length"),
+                ("action", "action"),
+                ("rate-limit-bps", "rate_limit_bps"),
             )
             if getattr(self, attr) is not None
         )
@@ -103,18 +103,18 @@ def _parse_value(value: str) -> list[Value]:
     values: list[Value] = []
 
     for val in value.split(","):
-        op: type[Value]
+        op: Value
 
         if match := re.match(r">=(\d+)&<=(\d+)", val):
-            op = Between
+            op = Between(int(match.group(1)), int(match.group(2)))
         elif match := re.match(r">(\d+)&<(\d+)", val):
-            op = Between
+            op = Between(int(match.group(1)) + 1, int(match.group(2)) - 1)
         elif match := re.match(r"=(\d+)", val):
-            op = Eq
+            op = Eq(int(match.group(1)))
         else:
             raise ValueError(f"Invalid value: {val}")
 
-        values.append(op(*map(int, match.groups())))
+        values.append(op)
 
     return values
 
