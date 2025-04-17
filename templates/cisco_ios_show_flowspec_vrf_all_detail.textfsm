@@ -16,6 +16,8 @@ Value DROPPED_PACKETS (\d+)
 Value DROPPED_BYTES (\d+)
 
 Start
+  ^.*\d{2}:\d{2}:\d{2}
+  ^\s*AFI\s*:
   ^\s*Flow\s*:((Dest:${DEST}|Source:${SOURCE}|Proto:${PROTO}|DPort:${DPORT}|SPort:${SPORT}|Length:${LENGTH}|TCPFlags:${TCP_FLAGS}|Frag:${FRAG}),?)+
   ^\s*Actions\s*:${ACTION}: ${TRAFFIC_RATE_BPS} bps.*
   ^\s*Actions\s*:${ACTION}.*
