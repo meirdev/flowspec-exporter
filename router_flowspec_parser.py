@@ -119,7 +119,9 @@ def _parse_value(value: str) -> list[Value]:
     return values
 
 
-def parse_flow_spec_cisco_ios(data: str, command: str) -> list[FlowSpec]:
+def parse_flow_spec_cisco_ios(
+    data: str, command: str = COMMANDS["cisco_ios"]
+) -> list[FlowSpec]:
     entries = parse_output(platform="cisco_ios", command=command, data=data)
 
     flow_specs = []
@@ -191,7 +193,9 @@ def _fix_ip_network(value: str) -> str:
     return value
 
 
-def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
+def parse_flow_spec_juniper_junos(
+    data: str, command: str = COMMANDS["juniper_junos"]
+) -> list[FlowSpec]:
     entries = parse_output(
         platform="juniper_junos",
         command=command,
@@ -266,7 +270,9 @@ def parse_flow_spec_juniper_junos(data: str, command: str) -> list[FlowSpec]:
     return flow_specs
 
 
-def parse_flow_spec_arista_eos(data: str, command: str) -> list[FlowSpec]:
+def parse_flow_spec_arista_eos(
+    data: str, command: str = COMMANDS["arista_eos"]
+) -> list[FlowSpec]:
     entries = parse_output(
         platform="arista_eos",
         command=command,
