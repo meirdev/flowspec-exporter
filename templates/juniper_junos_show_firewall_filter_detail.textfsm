@@ -11,7 +11,9 @@ Value PACKETS (\d+)
 Value RATE_LIMIT (\d+(K|M|G))
 
 Start
+  ^\s*Filter:
   ^\s*Counters:
   ^\s*Policers:
   ^\s*Name\s+Bytes\s+Packets
   ^\s*(${RATE_LIMIT}_)?${DST},${SRC}(,?(proto${PROTO}|dstport${DSTPORT}|srcport${SRCPORT}|tcp-flag:${TCP_FLAG}|frag:${FRAG}|len${LEN}))*.*\s+${BYTES}\s+${PACKETS} -> Record
+  ^. -> Error

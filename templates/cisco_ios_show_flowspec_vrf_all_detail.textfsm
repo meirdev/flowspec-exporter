@@ -1,9 +1,9 @@
 Value DEST ([^\s,]+)
 Value SOURCE ([^\s,]+)
-Value PROTO ((,?(((=|>=|<=)\d+)&?))+)
-Value DPORT ((,?(((=|>=|<=)\d+)&?))+)
-Value SPORT ((,?(((=|>=|<=)\d+)&?))+)
-Value LENGTH ((,?(((=|>=|<=)\d+)&?))+)
+Value PROTO ((,?(((=|>|<)\d+)&?))+)
+Value DPORT ((,?(((=|>|<)\d+)&?))+)
+Value SPORT ((,?(((=|>|<)\d+)&?))+)
+Value LENGTH ((,?(((=|>|<)\d+)&?))+)
 Value TCP_FLAGS (~0x[0-9a-f]+)
 Value FRAG (~[a-zA-Z]+)
 Value ACTION (Traffic-rate|Redirect|transmit)
@@ -25,3 +25,4 @@ Start
   ^\s*Matched\s*:\s*${MATCHED_PACKETS}/${MATCHED_BYTES}
   ^\s*Transmitted\s*:\s*${TRANSMITTED_PACKETS}/${TRANSMITTED_BYTES}
   ^\s*Dropped\s*:\s*${DROPPED_PACKETS}/${DROPPED_BYTES} -> Record
+  ^. -> Error
