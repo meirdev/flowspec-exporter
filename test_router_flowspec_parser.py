@@ -78,8 +78,6 @@ def test_parse_flow_spec_juniper_junos():
             length=[Eq(180)],
             matched_bytes=395784,
             matched_packets=6780,
-            dropped_bytes=395784,
-            dropped_packets=6780,
             action=Action.DISCARD,
         ),
         FlowSpec(
@@ -89,8 +87,6 @@ def test_parse_flow_spec_juniper_junos():
             src_port=[Between(1026, 65499)],
             matched_bytes=213018385651,
             matched_packets=204410643,
-            dropped_bytes=213018385651,
-            dropped_packets=204410643,
             action=Action.DISCARD,
         ),
         FlowSpec(
@@ -98,8 +94,6 @@ def test_parse_flow_spec_juniper_junos():
             dst_port=[Eq(40), Eq(50), Eq(60), Between(70, 80)],
             matched_bytes=100568357,
             matched_packets=94618,
-            dropped_bytes=100568357,
-            dropped_packets=94618,
             action=Action.RATE_LIMIT,
             rate_limit_bps=6291000,
         ),
@@ -168,8 +162,6 @@ def test_parse_flow_spec_arista_eos():
             fragment=Fragment.IS_FRAGMENT,
             matched_bytes=230,
             matched_packets=100,
-            dropped_bytes=230,
-            dropped_packets=100,
             action=Action.DISCARD,
         )
     ]

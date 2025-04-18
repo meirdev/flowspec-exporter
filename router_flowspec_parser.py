@@ -262,8 +262,6 @@ def parse_flow_spec_juniper_junos(
 
         flow_spec.matched_packets = int(entry["packets"])
         flow_spec.matched_bytes = int(entry["bytes"])
-        flow_spec.dropped_packets = int(entry["packets"])
-        flow_spec.dropped_bytes = int(entry["bytes"])
 
         flow_specs.append(flow_spec)
 
@@ -337,8 +335,6 @@ def parse_flow_spec_arista_eos(
 
         flow_spec.matched_packets = int(entry["packets"] or 0)
         flow_spec.matched_bytes = int(entry["bytes"] or 0)
-        flow_spec.dropped_packets = int(entry["packets"] or 0)
-        flow_spec.dropped_bytes = int(entry["bytes"] or 0)
 
         flow_specs.append(flow_spec)
 
