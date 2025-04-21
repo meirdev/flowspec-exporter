@@ -25,12 +25,16 @@ with placeholder.container():
     else:
         router = st.selectbox("Router", df.select("router").unique())
 
-        df_router = df.filter(pl.col("router") == router).with_columns(pl.col("timestamp").str.to_datetime()).select(
-            "timestamp",
-            "router",
-            "filter",
-            "matched_bytes",
-            "matched_packets",
+        df_router = (
+            df.filter(pl.col("router") == router)
+            .with_columns(pl.col("timestamp").str.to_datetime())
+            .select(
+                "timestamp",
+                "router",
+                "filter",
+                "matched_bytes",
+                "matched_packets",
+            )
         )
 
         if df_router.is_empty():
