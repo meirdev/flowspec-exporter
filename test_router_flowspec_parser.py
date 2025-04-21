@@ -78,7 +78,6 @@ def test_parse_flow_spec_juniper_junos():
             length=[Eq(180)],
             matched_bytes=395784,
             matched_packets=6780,
-            action=Action.DISCARD,
         ),
         FlowSpec(
             dst_addr=IPv4Network("134.34.2.128/25", strict=False),
@@ -87,7 +86,6 @@ def test_parse_flow_spec_juniper_junos():
             src_port=[Between(1026, 65499)],
             matched_bytes=213018385651,
             matched_packets=204410643,
-            action=Action.DISCARD,
         ),
         FlowSpec(
             dst_addr=IPv4Network("11.194.71.7"),

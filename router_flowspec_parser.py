@@ -257,8 +257,6 @@ def parse_flow_spec_juniper_junos(
                     raise ValueError(f"Invalid rate limit factor: {factor}")
 
             flow_spec.rate_limit_bps = int(entry["rate_limit"][:-1]) * factor
-        else:
-            flow_spec.action = Action.DISCARD
 
         flow_spec.matched_packets = int(entry["packets"])
         flow_spec.matched_bytes = int(entry["bytes"])
