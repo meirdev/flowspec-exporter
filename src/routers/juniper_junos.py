@@ -2,6 +2,7 @@ import itertools
 from contextlib import suppress
 from ipaddress import ip_network
 
+from netaddr import IPNetwork
 from ntc_templates.parse import parse_output  # type: ignore
 
 from ..consts import COMMANDS
@@ -24,14 +25,10 @@ def parse_flow_spec_juniper_junos(
 
         if entry["dst"] and entry["dst"] != "*":
             with suppress(ValueError):
-                flow_spec.dst_addr = ip_network(
-                    _fix_ip_network(entry["dst"]), strict=False
-                )
+                flow_spec.dst_addr = ip_network(str(IPNetwork(entry["dst"], expand_partial=True)))
         if entry["src"] and entry["src"] != "*":
             with suppress(ValueError):
-                flow_spec.src_addr = ip_network(
-                    _fix_ip_network(entry["src"]), strict=False
-                )
+                flow_spec.src_addr = ip_network(str(IPNetwork(entry["src"], expand_partial=True)))
         if entry["proto"]:
             flow_spec.proto = parse_value(entry["proto"])
         if entry["dstport"]:
@@ -79,17 +76,3 @@ def parse_flow_spec_juniper_junos(
         flow_specs.append(flow_spec)
 
     return flow_specs
-
-
-def _fix_ip_network(value: str) -> str:
-    # Fixes the IP address format to ensure it has 4 octets
-    if "/" in value:
-        ip_addr, mask = value.split("/")
-        ip_addr = ".".join(
-            i
-            for i, _ in itertools.zip_longest(
-                ip_addr.split("."), ["0", "0", "0", "0"], fillvalue="0"
-            )
-        )
-        return f"{ip_addr}/{mask}"
-    return value
