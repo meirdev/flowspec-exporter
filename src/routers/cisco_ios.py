@@ -1,48 +1,91 @@
-from ipaddress import ip_network
+import re
 
-from ntc_templates.parse import parse_output  # type: ignore
+from src.flowspec import (
+    Action,
+    BitmaskValues,
+    FlowSpec,
+)
+from src.routers.common import parse_bitmask, parse_numeric_values, parse_prefix
 
-from ..consts import COMMANDS
-from ..flowspec import Action, FlowSpec, Fragment, parse_value
+
+def _parse_frag(value: str) -> BitmaskValues:
+    match value:
+        case "~DF":
+            v = 0x01
+        case "~IsF":
+            v = 0x02
+        case "~FF":
+            v = 0x04
+        case "~LF":
+            v = 0x08
+        case _:
+            raise ValueError(f"Invalid fragment value: {value}")
+
+    return parse_bitmask(str(v))
 
 
-def parse_flow_spec_cisco_ios(
-    data: str, command: str = COMMANDS["cisco_ios"]
-) -> list[FlowSpec]:
-    entries = parse_output(platform="cisco_ios", command=command, data=data)
+def _cisco_pattern() -> re.Pattern:
+    prefix = r"(?P<{key}>[^\s,]+)"
+    number = r"(?P<{key}>(,?(((=|>=|<=)\d+)&?))+)"
 
-    flow_specs = []
+    dest = prefix.format(key="dest")
+    source = prefix.format(key="source")
+    proto = number.format(key="proto")
+    dport = number.format(key="dport")
+    sport = number.format(key="sport")
+    length = number.format(key="length")
+    tcp_flags = r"(?P<tcp_flags>~0x[0-9a-f]+)"
+    frag = r"(?P<frag>~[a-zA-Z]+)"
+
+    action = r"(?P<action>Traffic-rate|Redirect|transmit)"
+    traffic_rate_bps = r"(?P<traffic_rate_bps>\d+)"
+
+    matched_packets = r"(?P<matched_packets>\d+)"
+    matched_bytes = r"(?P<matched_bytes>\d+)"
+    transmitted_packets = r"(?P<transmitted_packets>\d+)"
+    transmitted_bytes = r"(?P<transmitted_bytes>\d+)"
+    dropped_packets = r"(?P<dropped_packets>\d+)"
+    dropped_bytes = r"(?P<dropped_bytes>\d+)"
+
+    return re.compile(
+        rf"Flow\s*:(?P<raw>((Dest:{dest}|Source:{source}|Proto:{proto}|DPort:{dport}|SPort:{sport}|Length:{length}|TCPFlags:{tcp_flags}|Frag:{frag}),?)+).*?"
+        + rf"Actions\s*:{action}(:\s*{traffic_rate_bps} bps)?.*?"
+        + rf"Matched\s*:\s*{matched_packets}/{matched_bytes}[^\w]*"
+        + rf"(Transmitted\s*:\s*{transmitted_packets}/{transmitted_bytes}[^\w]*)?"
+        + rf"(Dropped\s*:\s*{dropped_packets}/{dropped_bytes})?",
+        re.DOTALL | re.MULTILINE | re.IGNORECASE,
+    )
+
+
+CISCO_PATTERN = _cisco_pattern()
+
+
+def parse_flow_spec_cisco_ios(data: str) -> list[FlowSpec]:
+    entries = CISCO_PATTERN.finditer(data)
+
+    flow_specs: list[FlowSpec] = []
 
     for entry in entries:
-        flow_spec = FlowSpec()
+        flow_spec = FlowSpec(raw=entry.group("raw"))
 
-        if entry["dest"]:
-            flow_spec.dst_addr = ip_network(entry["dest"], strict=False)
-        if entry["source"]:
-            flow_spec.src_addr = ip_network(entry["source"], strict=False)
-        if entry["proto"]:
-            flow_spec.proto = parse_value(entry["proto"])
-        if entry["dport"]:
-            flow_spec.dst_port = parse_value(entry["dport"])
-        if entry["sport"]:
-            flow_spec.src_port = parse_value(entry["sport"])
-        if entry["length"]:
-            flow_spec.length = parse_value(entry["length"])
-        if entry["tcp_flags"]:
-            flow_spec.tcp_flags = int(entry["tcp_flags"][1:], 16)
+        if dest := entry.group("dest"):
+            flow_spec.destination_prefix = parse_prefix(dest)
+        if source := entry.group("source"):
+            flow_spec.source_prefix = parse_prefix(source)
+        if proto := entry.group("proto"):
+            flow_spec.ip_protocol = parse_numeric_values(proto)
+        if dport := entry.group("dport"):
+            flow_spec.destination_port = parse_numeric_values(dport)
+        if sport := entry.group("sport"):
+            flow_spec.source_port = parse_numeric_values(sport)
+        if length := entry.group("length"):
+            flow_spec.packet_length = parse_numeric_values(length)
+        if tcp_flags := entry.group("tcp_flags"):
+            flow_spec.tcp_flags = parse_bitmask(tcp_flags[1:])
+        if frag := entry.group("frag"):
+            flow_spec.fragment = _parse_frag(frag)
 
-        if entry["frag"]:
-            match entry["frag"]:
-                case "~DF":
-                    flow_spec.fragment = Fragment.DONT_FRAGMENT
-                case "~FF":
-                    flow_spec.fragment = Fragment.FIRST_FRAGMENT
-                case "~LF":
-                    flow_spec.fragment = Fragment.LAST_FRAGMENT
-                case "~IsF":
-                    flow_spec.fragment = Fragment.IS_FRAGMENT
-
-        match entry["action"]:
+        match entry.group("action"):
             case "transmit":
                 flow_spec.action = Action.ACCEPT
             case "Traffic-rate":
@@ -50,24 +93,24 @@ def parse_flow_spec_cisco_ios(
                     flow_spec.action = Action.DISCARD
                 else:
                     flow_spec.action = Action.RATE_LIMIT
-                    flow_spec.rate_limit_bps = int(entry["traffic_rate_bps"])
+                    flow_spec.rate_limit_bps = int(entry.group("traffic_rate_bps"))
             case _:
                 pass
 
-        if entry["matched_packets"] != "":
-            flow_spec.matched_packets = int(entry["matched_packets"])
-        if entry["matched_bytes"] != "":
-            flow_spec.matched_bytes = int(entry["matched_bytes"])
+        if matched_packets := entry.group("matched_packets"):
+            flow_spec.matched_packets = int(matched_packets)
+        if matched_bytes := entry.group("matched_bytes"):
+            flow_spec.matched_bytes = int(matched_bytes)
 
-        if entry["transmitted_packets"] != "":
-            flow_spec.transmitted_packets = int(entry["transmitted_packets"])
-        if entry["transmitted_bytes"] != "":
-            flow_spec.transmitted_bytes = int(entry["transmitted_bytes"])
+        if (transmitted_packets := entry.group("transmitted_packets")) is not None:
+            flow_spec.transmitted_packets = int(transmitted_packets)
+        if (transmitted_bytes := entry.group("transmitted_bytes")) is not None:
+            flow_spec.transmitted_bytes = int(transmitted_bytes)
 
-        if entry["dropped_packets"] != "":
-            flow_spec.dropped_packets = int(entry["dropped_packets"])
-        if entry["dropped_bytes"] != "":
-            flow_spec.dropped_bytes = int(entry["dropped_bytes"])
+        if (dropped_packets := entry.group("dropped_packets")) is not None:
+            flow_spec.dropped_packets = int(dropped_packets)
+        if (dropped_bytes := entry.group("dropped_bytes")) is not None:
+            flow_spec.dropped_bytes = int(dropped_bytes)
 
         flow_specs.append(flow_spec)
 

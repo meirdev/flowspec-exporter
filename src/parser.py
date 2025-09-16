@@ -1,18 +1,18 @@
 from typing import Literal
 
-from .flowspec import FlowSpec
-from .routers.arista_eos import parse_flow_spec_arista_eos
-from .routers.cisco_ios import parse_flow_spec_cisco_ios
-from .routers.juniper_junos import parse_flow_spec_juniper_junos
+from src.flowspec import FlowSpec
+from src.routers.arista_eos import parse_flow_spec_arista_eos
+from src.routers.cisco_ios import parse_flow_spec_cisco_ios
+from src.routers.juniper_junos import parse_flow_spec_juniper_junos
 
 type Platform = Literal["cisco_ios", "juniper_junos", "arista_eos"]
 
 
-def parse_flow_spec(platform: Platform, data: str, command: str) -> list[FlowSpec]:
+def parse_flow_spec(platform: Platform, data: str) -> list[FlowSpec]:
     match platform:
         case "cisco_ios":
-            return parse_flow_spec_cisco_ios(data, command)
+            return parse_flow_spec_cisco_ios(data)
         case "juniper_junos":
-            return parse_flow_spec_juniper_junos(data, command)
+            return parse_flow_spec_juniper_junos(data)
         case "arista_eos":
-            return parse_flow_spec_arista_eos(data, command)
+            return parse_flow_spec_arista_eos(data)

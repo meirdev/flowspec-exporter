@@ -1,60 +1,73 @@
-from contextlib import suppress
-from ipaddress import ip_network
+import re
 
-from ntc_templates.parse import parse_output  # type: ignore
+from src.flowspec import (
+    Action,
+    FlowSpec,
+)
+from src.routers.common import parse_bitmask, parse_numeric_values, parse_prefix
 
-from ..consts import COMMANDS
-from ..flowspec import Action, FlowSpec, Fragment, parse_value
 
+def _arista_pattern() -> re.Pattern:
+    prefix = r"(?P<{key}>[^;]+)"
+    number = r"(?P<{key}>((,?(((=|>|<)\d+)&?))+))"
 
-def parse_flow_spec_arista_eos(
-    data: str, command: str = COMMANDS["arista_eos"]
-) -> list[FlowSpec]:
-    entries = parse_output(
-        platform="arista_eos",
-        command=command,
-        data=data,
+    dest = prefix.format(key="dest")
+    source = prefix.format(key="source")
+
+    ip = number.format(key="ip")
+    dp = number.format(key="dp")
+    sp = number.format(key="sp")
+    len = number.format(key="len")
+
+    tcp = r"(?P<tcp>\d+)"
+    frag = r"(?P<frag>\d+)"
+
+    action = r"(?P<action>Drop)"
+    rate_limit = r"(?P<rate_limit>\d+(\.\d+) (K|M|G)?bps)"
+
+    packets = r"(?P<packets>\d+)"
+    bytes = r"(?P<bytes>\d+)"
+
+    return re.compile(
+        rf"Flow-spec rule:\s*(?P<raw>{dest};{source};((IP:{ip}|DP:{dp}|SP:{sp}|LEN:{len}|TCP:{tcp}|FRAG:{frag});)+).*?"
+        + rf"({action}|(Police:\s*({rate_limit}))).*?"
+        + rf"Counter:\s*{packets}\s+packets,\s*{bytes}\s+bytes",
+        re.DOTALL | re.MULTILINE | re.IGNORECASE,
     )
 
-    flow_specs = []
+
+ARISTA_PATTERN = _arista_pattern()
+
+
+def parse_flow_spec_arista_eos(data: str) -> list[FlowSpec]:
+    entries = ARISTA_PATTERN.finditer(data)
+
+    flow_specs: list[FlowSpec] = []
 
     for entry in entries:
-        flow_spec = FlowSpec()
+        flow_spec = FlowSpec(raw=entry.group("raw"))
 
-        if entry["dest"] and entry["dest"] != "*":
-            with suppress(ValueError):
-                flow_spec.dst_addr = ip_network(entry["dest"], strict=False)
-        if entry["source"] and entry["source"] != "*":
-            with suppress(ValueError):
-                flow_spec.src_addr = ip_network(entry["source"], strict=False)
-        if entry["ip"]:
-            flow_spec.proto = parse_value(entry["ip"])
-        if entry["dp"]:
-            flow_spec.dst_port = parse_value(entry["dp"])
-        if entry["sp"]:
-            flow_spec.src_port = parse_value(entry["sp"])
-        if entry["len"]:
-            flow_spec.length = parse_value(entry["len"])
-        if entry["tcp"]:
-            flow_spec.tcp_flags = int(entry["tcp"])
+        if dest := entry.group("dest"):
+            flow_spec.destination_prefix = parse_prefix(dest)
+        if source := entry.group("source"):
+            flow_spec.source_prefix = parse_prefix(source)
+        if ip := entry.group("ip"):
+            flow_spec.ip_protocol = parse_numeric_values(ip)
+        if dp := entry.group("dp"):
+            flow_spec.destination_port = parse_numeric_values(dp)
+        if sp := entry.group("sp"):
+            flow_spec.source_port = parse_numeric_values(sp)
+        if len := entry.group("len"):
+            flow_spec.packet_length = parse_numeric_values(len)
+        if tcp := entry.group("tcp"):
+            flow_spec.tcp_flags = parse_bitmask(tcp)
+        if frag := entry.group("frag"):
+            flow_spec.fragment = parse_bitmask(frag)
 
-        if entry["frag"]:
-            match entry["frag"]:
-                case "0":
-                    flow_spec.fragment = Fragment.NOT_A_FRAGMENT
-                case "1":
-                    flow_spec.fragment = Fragment.DONT_FRAGMENT
-                case "2":
-                    flow_spec.fragment = Fragment.IS_FRAGMENT
-                case "4":
-                    flow_spec.fragment = Fragment.FIRST_FRAGMENT
-                case "8":
-                    flow_spec.fragment = Fragment.LAST_FRAGMENT
-
-        if entry["rate_limit"]:
+        if rate_limit := entry.group("rate_limit"):
             flow_spec.action = Action.RATE_LIMIT
 
-            number, size = entry["rate_limit"].split(" ")
+            number, size = rate_limit.split(" ")
 
             match size:
                 case "bps":
@@ -72,11 +85,11 @@ def parse_flow_spec_arista_eos(
         else:
             flow_spec.action = Action.DISCARD
 
-        if entry["packets"] != "":
-            flow_spec.matched_packets = int(entry["packets"])
+        if (packets := entry.group("packets")) is not None:
+            flow_spec.matched_packets = int(packets)
 
-        if entry["bytes"] != "":
-            flow_spec.matched_bytes = int(entry["bytes"])
+        if (bytes := entry.group("bytes")) is not None:
+            flow_spec.matched_bytes = int(bytes)
 
         flow_specs.append(flow_spec)
 
