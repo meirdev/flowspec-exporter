@@ -1,135 +1,213 @@
+import logging
 import re
+from typing import TypedDict, Unpack
+
+from asyncssh import SSHClientConnection
+from netaddr import IPNetwork
 
 from src.flowspec import (
     Action,
+    BitmaskOp,
     BitmaskValues,
     FlowSpec,
+    NumericOp,
+    NumericOpEq,
+    NumericOpGt,
+    NumericOpGte,
+    NumericOpLt,
+    NumericOpLte,
+    NumericOpNe,
+    NumericValues,
 )
-from src.routers.common import parse_bitmask, parse_numeric_values, parse_prefix
+
+logger = logging.getLogger(__name__)
+
+
+COMMAND_SHOW_FIREWALL_FILTER = "show firewall filter detail __flowspec_default_inet__"
+
+RE_FIND_COUNTERS_AND_POLICERS = re.compile(
+    r"^(?P<raw>[^\s]+)\s+(?P<bytes>\d+)\s+(?P<packets>\d+)$", re.MULTILINE
+)
+
+RE_FIND_RATE_LIMIT_DST_SRC = re.compile(
+    r"(?:(?P<rate_limit>\d+)(?P<rate_limit_factor>K|M|G)_)?(?P<dst>[^,]+),(?P<src>[^,]+)"
+)
+
+RE_FIND_COMPONENTS = re.compile(
+    r"(?P<key>proto|port|dstport|srcport|icmp-type|icmp-code|tcp-flag|len|dscp|frag)(?P<value>[^a-z]+)"
+)
+
+RE_FIND_NUMERIC_VALUES = re.compile(r"(?P<op>[><=!]+)(?P<val>\d+)(?P<and_or>[,&])?")
+
+RE_FIND_BITMASK_VALUES = re.compile(
+    r"(?P<not>!)?(?P<match>[:=])(?P<val>\d+)(?P<and_or>[,&])?"
+)
+
+
+def _parse_prefix(value: str) -> IPNetwork | None:
+    if value == "*":
+        return None
+
+    return IPNetwork(value, expand_partial=True)
+
+
+def _parse_numeric_values(value: str) -> NumericValues:
+    values, set_and = NumericValues(), False
+
+    for i in RE_FIND_NUMERIC_VALUES.finditer(value):
+        numeric_op: NumericOp
+
+        match i.group("op"):
+            case ">=":
+                numeric_op = NumericOpGte
+            case "<=":
+                numeric_op = NumericOpLte
+            case "=":
+                numeric_op = NumericOpEq
+            case "!=":
+                numeric_op = NumericOpNe
+            case ">":
+                numeric_op = NumericOpGt
+            case "<":
+                numeric_op = NumericOpLt
+            case _:
+                raise ValueError(f"Invalid operator: {i.group('op')}")
+
+        values.append((numeric_op.set_and(set_and), int(i.group("val"))))
+
+        set_and = i.group("and_or") == "&"
+
+    return values
 
 
 def _parse_bitmask_values(value: str) -> BitmaskValues:
-    if value.startswith("!"):
-        not_ = True
-        value = value[1:]
-    else:
-        not_ = False
+    values, set_and = BitmaskValues(), False
 
-    return parse_bitmask(value[1:], not_)
+    for i in RE_FIND_BITMASK_VALUES.finditer(value):
+        not_ = i.group("not") is not None
+        match_ = i.group("match") == "="
 
+        val: str = i.group("val")
 
-def _juniper_pattern() -> re.Pattern:
-    prefix = r"(?P<{key}>[^\s,]+)"
-    number = r"(?P<{key}>(,?(((=|>=|<=)\d+)&?))+)"
-    bitmask = r"(?P<{key}>!?:\d+)"
+        value_int = int(val)
 
-    dst = prefix.format(key="dst")
-    src = prefix.format(key="src")
-    proto = number.format(key="proto")
-    port = number.format(key="port")
-    dstport = number.format(key="dstport")
-    srcport = number.format(key="srcport")
-    icmp_type = number.format(key="icmp_type")
-    icmp_code = number.format(key="icmp_code")
-    len = number.format(key="len")
-    dscp = number.format(key="dscp")
+        values.append((BitmaskOp(not_=not_, match=match_).set_and(set_and), value_int))
 
-    tcp_flag = bitmask.format(key="tcp_flag")
-    frag = bitmask.format(key="frag")
+        set_and = i.group("and_or") == "&"
 
-    bytes = r"(?P<bytes>\d+)"
-    packets = r"(?P<packets>\d+)"
-
-    rate_limit = r"(?P<rate_limit>\d+(k|m|g))"
-
-    return re.compile(
-        rf"(?P<raw>({rate_limit}_)?{dst},{src}(,?(proto{proto}|port{port}|dstport{dstport}|srcport{srcport}|icmp-type{icmp_type}|icmp-code{icmp_code}|tcp-flag{tcp_flag}|len{len}|dscp{dscp}|frag{frag}))*.*?)\s+{bytes}\s+{packets}",
-        re.MULTILINE | re.IGNORECASE,
-    )
+    return values
 
 
-JUNIPER_PATTERN = _juniper_pattern()
+def _parse_stdout(stdout: str) -> list[FlowSpec]:
+    flowspecs: list[FlowSpec] = []
 
+    for raw, bytes, packets in RE_FIND_COUNTERS_AND_POLICERS.findall(stdout):
+        logger.debug(
+            "Parsing flowspec: %s, bytes: %s, packets: %s", raw, bytes, packets
+        )
 
-def parse_flow_spec_juniper_junos(data: str) -> list[FlowSpec]:
-    entries = JUNIPER_PATTERN.finditer(data)
+        flowspec = FlowSpec(raw=raw)
 
-    flow_specs: list[FlowSpec] = []
+        flowspec.matched_bytes = int(bytes)
+        flowspec.matched_packets = int(packets)
 
-    for entry in entries:
-        flow_spec = FlowSpec(raw=entry.group("raw"))
+        match = RE_FIND_RATE_LIMIT_DST_SRC.match(raw)
+        if not match:
+            logger.error("Failed to parse rate limit, dst, src from: %s", raw)
+            continue
 
-        if dst := entry.group("dst"):
-            flow_spec.destination_prefix = parse_prefix(dst)
-        if src := entry.group("src"):
-            flow_spec.source_prefix = parse_prefix(src)
-        if proto := entry.group("proto"):
-            flow_spec.ip_protocol = parse_numeric_values(proto)
-        if port := entry.group("port"):
-            flow_spec.port = parse_numeric_values(port)
-        if dstport := entry.group("dstport"):
-            flow_spec.destination_port = parse_numeric_values(dstport)
-        if srcport := entry.group("srcport"):
-            flow_spec.source_port = parse_numeric_values(srcport)
-        if icmp_type := entry["icmp_type"]:
-            flow_spec.icmp_type = parse_numeric_values(icmp_type)
-        if icmp_code := entry["icmp_code"]:
-            flow_spec.icmp_code = parse_numeric_values(icmp_code)
-        if tcp_flag := entry["tcp_flag"]:
-            flow_spec.tcp_flags = _parse_bitmask_values(tcp_flag)
-        if len := entry["len"]:
-            flow_spec.packet_length = parse_numeric_values(len)
-        if dscp := entry["dscp"]:
-            flow_spec.dscp = parse_numeric_values(dscp)
-        if frag := entry["frag"]:
-            flow_spec.fragment = _parse_bitmask_values(frag)
+        flowspec.destination_prefix = _parse_prefix(match.group("dst"))
+        flowspec.source_prefix = _parse_prefix(match.group("src"))
 
-        if rate_limit := entry.group("rate_limit"):
-            flow_spec.action = Action.RATE_LIMIT
+        rate_limit, rate_limit_factor = (
+            match.group("rate_limit"),
+            match.group("rate_limit_factor"),
+        )
+        if rate_limit and rate_limit_factor:
+            rate_limit: str
+            rate_limit_factor: str
 
-            factor = rate_limit[-1].lower()
+            flowspec.action = Action.RATE_LIMIT
 
-            match factor:
-                case "k":
+            match rate_limit_factor:
+                case "K":
                     factor = 1_000
-                case "m":
+                case "M":
                     factor = 1_000_000
-                case "g":
+                case "G":
                     factor = 1_000_000_000
                 case _:
-                    raise ValueError(f"Invalid rate limit factor: {factor}")
+                    logger.error("Invalid rate limit factor: %s", rate_limit_factor)
+                    continue
 
-            flow_spec.rate_limit_bps = int(rate_limit[:-1]) * factor
+            flowspec.rate_limit_bps = int(rate_limit) * factor
 
-            flow_spec.dropped_packets = int(entry.group("packets"))
-            flow_spec.dropped_bytes = int(entry.group("bytes"))
+            flowspec.dropped_bytes = flowspec.matched_bytes
+            flowspec.dropped_packets = flowspec.matched_packets
 
-            flow_spec.matched_packets = int(entry.group("packets"))
-            flow_spec.matched_bytes = int(entry.group("bytes"))
-        else:
-            # There is no indication whether counters are dropped or transmitted,
+        for key, value in RE_FIND_COMPONENTS.findall(raw):
+            key: str
+            value: str
 
-            flow_spec.matched_packets = int(entry.group("packets"))
-            flow_spec.matched_bytes = int(entry.group("bytes"))
+            key, value = key, value.strip(",")  # Remove trailing comma from value
 
-        flow_specs.append(flow_spec)
+            match key:
+                case "proto":
+                    flowspec.ip_protocol = _parse_numeric_values(value)
+                case "port":
+                    flowspec.port = _parse_numeric_values(value)
+                case "dstport":
+                    flowspec.destination_port = _parse_numeric_values(value)
+                case "srcport":
+                    flowspec.source_port = _parse_numeric_values(value)
+                case "icmp-type":
+                    flowspec.icmp_type = _parse_numeric_values(value)
+                case "icmp-code":
+                    flowspec.icmp_code = _parse_numeric_values(value)
+                case "tcp-flag":
+                    flowspec.tcp_flags = _parse_bitmask_values(value)
+                case "len":
+                    flowspec.packet_length = _parse_numeric_values(value)
+                case "dscp":
+                    flowspec.dscp = _parse_numeric_values(value)
+                case "frag":
+                    flowspec.fragment = _parse_bitmask_values(value)
+
+        flowspecs.append(flowspec)
 
     # Juniper returns counters and policers, the rate limit is the policer.
     # If the policer is present, the corresponding counter is the transmitted one (accept traffic)
 
-    flow_specs_dict: dict[str, FlowSpec] = {}
+    flowspecs_dict: dict[str, FlowSpec] = {}
 
-    for flow_spec in flow_specs:
+    for flow_spec in flowspecs:
         flow_spec_key = flow_spec.str_filter()
 
-        if flow_spec_item := flow_specs_dict.get(flow_spec_key):
-            if flow_spec.action is Action.RATE_LIMIT:
+        if flow_spec_item := flowspecs_dict.get(flow_spec_key):
+            if flow_spec.action == Action.RATE_LIMIT:
                 flow_spec.transmitted_bytes = flow_spec_item.matched_bytes
                 flow_spec.transmitted_packets = flow_spec_item.matched_packets
 
                 flow_spec.matched_bytes += flow_spec.transmitted_bytes  # type: ignore
                 flow_spec.matched_packets += flow_spec.transmitted_packets  # type: ignore
 
-        flow_specs_dict[flow_spec_key] = flow_spec
+        flowspecs_dict[flow_spec_key] = flow_spec
 
-    return list(flow_specs_dict.values())
+    return list(flowspecs_dict.values())
+
+
+class FlowSpecJuniperJunosKwargs(TypedDict):
+    pass
+
+
+async def parse_flow_spec_juniper_junos(
+    connection: SSHClientConnection,
+    **kwargs: Unpack[FlowSpecJuniperJunosKwargs],
+) -> list[FlowSpec]:
+    logger.info("Sending command: %s", COMMAND_SHOW_FIREWALL_FILTER)
+    result = await connection.run(COMMAND_SHOW_FIREWALL_FILTER, check=True)
+
+    output = str(result.stdout)
+    logger.info("Command output: %s", output)
+
+    return _parse_stdout(output)

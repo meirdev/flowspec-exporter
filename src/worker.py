@@ -39,6 +39,7 @@ class Router:
     ssh_username: str | None
     ssh_password: str | None
     ssh_command: str
+    parameters: dict[str, str]
 
 
 @tenacity.retry(
@@ -66,25 +67,10 @@ async def scrape(db_conn: sqlite3.Connection, router: Router):
         logger.debug("Connected to router", extra={"router": router.name})
 
         while True:
-            logger.debug("Running command on router", extra={"router": router.name})
-
-            result = await conn.run(
-                router.ssh_command, check=True, timeout=scrape_timeout
-            )
-
-            logger.debug(
-                "Command executed on router",
-                extra={
-                    "router": router.name,
-                    "result_stdout": str(result.stdout),
-                    "result_stderr": str(result.stderr),
-                },
-            )
-
             entries = parse_flow_spec(
                 platform=cast(Platform, router.platform),
-                data=str(result.stdout),
-                command=router.ssh_command,
+                connection=conn,
+                **router.parameters,
             )
 
             logger.debug(
@@ -169,6 +155,7 @@ async def main() -> None:
                 ssh_username=router.get("ssh_username"),
                 ssh_password=router.get("ssh_password"),
                 ssh_command=router["ssh_command"],
+                parameters=router.get("parameters", {}),
             )
         )
 

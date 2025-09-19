@@ -1,8 +1,9 @@
 from collections import UserList
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
 from typing import Self
 
+from dataclasses_json import config, dataclass_json
 from netaddr import IPNetwork
 
 
@@ -61,6 +62,7 @@ class CommandType(IntEnum):
                 return "fragment"
 
 
+@dataclass_json
 @dataclass(eq=True)
 class NumericOp:
     and_: bool = False
@@ -114,16 +116,28 @@ NumericOpNe = NumericOp(gt=True, lt=True)
 NumericOpTrue = NumericOp(and_=True, eq=True)
 
 
+@dataclass_json
 @dataclass(eq=True)
 class BitmaskOp:
+    and_: bool = False
     not_: bool = False
     match: bool = False
 
+    def set_and(self, value: bool) -> Self:
+        self.and_ = value
+
+        return self
+
     def __str__(self) -> str:
+        s = ""
+
         if self.not_:
-            return "!"
-        else:
-            return ""
+            s += "!"
+
+        if self.match:
+            s += ":"
+
+        return s
 
 
 class NumericValues(UserList[tuple[NumericOp, int]]):
@@ -147,14 +161,25 @@ class BitmaskValues(UserList[tuple[BitmaskOp, int]]):
         super().__init__(args)
 
     def __str__(self) -> str:
-        return f"{' '.join(f'{op}0x{value:02x}' for op, value in self.data)}"
+        s = []
+
+        for op, value in self.data:
+            if op.and_:
+                s += ["&", f"{op}0x{value:02x}"]
+            else:
+                s += [" ", f"{op}0x{value:02x}"]
+
+        return "".join(s).strip()
 
 
+@dataclass_json
 @dataclass
 class FlowSpec:
     raw: str = ""
-    destination_prefix: IPNetwork | None = None
-    source_prefix: IPNetwork | None = None
+    destination_prefix: IPNetwork | None = field(
+        default=None, metadata=config(encoder=str)
+    )
+    source_prefix: IPNetwork | None = field(default=None, metadata=config(encoder=str))
     ip_protocol: NumericValues | None = None
     port: NumericValues | None = None
     destination_port: NumericValues | None = None
@@ -173,6 +198,8 @@ class FlowSpec:
     transmitted_bytes: int | None = None
     dropped_packets: int | None = None
     dropped_bytes: int | None = None
+
+    metadata: dict[str, str] = field(default_factory=dict)
 
     def str_filter(self) -> str:
         s = []
@@ -197,3 +224,22 @@ class FlowSpec:
                 s.append(f"{CommandType.from_str(field)}: {field_value}")
 
         return ", ".join(s)
+
+
+__all__ = [
+    "Action",
+    "CommandType",
+    "NumericOp",
+    "NumericOpFalse",
+    "NumericOpEq",
+    "NumericOpGt",
+    "NumericOpGte",
+    "NumericOpLt",
+    "NumericOpLte",
+    "NumericOpNe",
+    "NumericOpTrue",
+    "BitmaskOp",
+    "NumericValues",
+    "BitmaskValues",
+    "FlowSpec",
+]
