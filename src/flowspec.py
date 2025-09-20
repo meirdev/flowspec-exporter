@@ -205,7 +205,7 @@ class FlowSpec:
     def str_filter(self) -> str:
         s = []
 
-        for field in (
+        for key in (
             "destination_prefix",
             "source_prefix",
             "ip_protocol",
@@ -219,10 +219,10 @@ class FlowSpec:
             "dscp",
             "fragment",
         ):
-            field_value = getattr(self, field)
+            value = getattr(self, key)
 
-            if field_value is not None:
-                s.append(f"{CommandType.from_str(field)}: {field_value}")
+            if value is not None:
+                s.append(f"{CommandType.from_str(key)}: {value}")
 
         return ", ".join(s)
 
