@@ -38,7 +38,6 @@ class Router:
     ssh_port: int
     ssh_username: str | None
     ssh_password: str | None
-    ssh_command: str
     parameters: dict[str, str]
 
 
@@ -154,7 +153,6 @@ async def main() -> None:
                 ssh_port=router.get("ssh_port", DEFAULT_SSH_PORT),
                 ssh_username=router.get("ssh_username"),
                 ssh_password=router.get("ssh_password"),
-                ssh_command=router["ssh_command"],
                 parameters=router.get("parameters", {}),
             )
         )
