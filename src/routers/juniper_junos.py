@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import TypedDict, Unpack
+from typing import NotRequired, TypedDict, Unpack
 
 from asyncssh import SSHClientConnection
 from netaddr import IPNetwork
@@ -12,18 +12,17 @@ from src.flowspec import (
     FlowSpec,
     NumericOp,
     NumericOpEq,
-    NumericOpGt,
     NumericOpGte,
-    NumericOpLt,
     NumericOpLte,
-    NumericOpNe,
     NumericValues,
 )
 
 logger = logging.getLogger(__name__)
 
 
-COMMAND_SHOW_FIREWALL_FILTER = "show firewall filter detail __flowspec_default_inet__"
+DEFAULT_FILTER_NAME = "__flowspec_default_inet__"
+
+COMMAND_SHOW_FIREWALL_FILTER = "show firewall filter detail {filter_name}"
 
 RE_FIND_COUNTERS_AND_POLICERS = re.compile(
     r"^(?P<raw>[^\s]+)\s+(?P<bytes>\d+)\s+(?P<packets>\d+)$", re.MULTILINE
@@ -57,6 +56,9 @@ def _parse_numeric_values(value: str) -> NumericValues:
     for i in RE_FIND_NUMERIC_VALUES.finditer(value):
         numeric_op: NumericOp
 
+        # Juniper doesn't use '>', '<' and '!=' in the output! it converts them to '>=' and '<='.
+        # Example: 'port>100' becomes 'port>=101&<=65535', 'port!=100' becomes 'port>=0&<=99'.
+
         match i.group("op"):
             case ">=":
                 numeric_op = NumericOpGte
@@ -64,14 +66,9 @@ def _parse_numeric_values(value: str) -> NumericValues:
                 numeric_op = NumericOpLte
             case "=":
                 numeric_op = NumericOpEq
-            case "!=":
-                numeric_op = NumericOpNe
-            case ">":
-                numeric_op = NumericOpGt
-            case "<":
-                numeric_op = NumericOpLt
             case _:
-                raise ValueError(f"Invalid operator: {i.group('op')}")
+                logger.error("Invalid operator: %s", i.group("op"))
+                continue
 
         values.append((numeric_op.set_and(set_and), int(i.group("val"))))
 
@@ -88,7 +85,6 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
         match_ = i.group("match") == "="
 
         val: str = i.group("val")
-
         value_int = int(val)
 
         values.append((BitmaskOp(not_=not_, match=match_).set_and(set_and), value_int))
@@ -98,15 +94,17 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
     return values
 
 
-def _parse_stdout(stdout: str) -> list[FlowSpec]:
+def parse_output(output: str) -> list[FlowSpec]:
     flowspecs: list[FlowSpec] = []
 
-    for raw, bytes, packets in RE_FIND_COUNTERS_AND_POLICERS.findall(stdout):
+    for raw, bytes, packets in RE_FIND_COUNTERS_AND_POLICERS.findall(output):
         logger.debug(
             "Parsing flowspec: %s, bytes: %s, packets: %s", raw, bytes, packets
         )
 
-        flowspec = FlowSpec(raw=raw)
+        flowspec = FlowSpec()
+
+        flowspec.raw = raw
 
         flowspec.matched_bytes = int(bytes)
         flowspec.matched_packets = int(packets)
@@ -197,17 +195,21 @@ def _parse_stdout(stdout: str) -> list[FlowSpec]:
 
 
 class FlowSpecJuniperJunosKwargs(TypedDict):
-    pass
+    filter_name: NotRequired[str]
 
 
 async def parse_flow_spec_juniper_junos(
     connection: SSHClientConnection,
     **kwargs: Unpack[FlowSpecJuniperJunosKwargs],
 ) -> list[FlowSpec]:
-    logger.info("Sending command: %s", COMMAND_SHOW_FIREWALL_FILTER)
-    result = await connection.run(COMMAND_SHOW_FIREWALL_FILTER, check=True)
+    filter_name = kwargs.get("filter_name", DEFAULT_FILTER_NAME)
+
+    command = COMMAND_SHOW_FIREWALL_FILTER.format(filter_name=filter_name)
+
+    logger.info("Sending command", extra={"command": command})
+    result = await connection.run(command, check=True)
 
     output = str(result.stdout)
-    logger.info("Command output: %s", output)
+    logger.info("Command output", extra={"output": output})
 
-    return _parse_stdout(output)
+    return parse_output(output)

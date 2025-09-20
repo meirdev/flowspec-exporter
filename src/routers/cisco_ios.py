@@ -1,117 +1,228 @@
+import logging
 import re
+from typing import NotRequired, TypedDict, Unpack
+
+from asyncssh import SSHClientConnection
+from netaddr import IPNetwork
 
 from src.flowspec import (
     Action,
+    BitmaskOp,
     BitmaskValues,
     FlowSpec,
+    NumericOp,
+    NumericOpEq,
+    NumericOpGt,
+    NumericOpGte,
+    NumericOpLt,
+    NumericOpLte,
+    NumericOpNe,
+    NumericValues,
 )
-from src.routers.common import parse_bitmask, parse_numeric_values, parse_prefix
+
+logger = logging.getLogger(__name__)
 
 
-def _parse_frag(value: str) -> BitmaskValues:
-    match value:
-        case "~DF":
-            v = 0x01
-        case "~IsF":
-            v = 0x02
-        case "~FF":
-            v = 0x04
-        case "~LF":
-            v = 0x08
-        case _:
-            raise ValueError(f"Invalid fragment value: {value}")
+DEFAULT_VRF = "all"
 
-    return parse_bitmask(str(v))
+COMMAND_SHOW_FLOWSPEC = "show flowspec vrf {vrf} ipv4 detail"
 
+RE_FIND_FLOWS = re.compile(
+    r"Flow\s*:\s*(?P<raw>[^\n\r]+)\s*"
+    r"Actions\s*:\s*(?P<actions>[^\n\r]+)\s*"
+    r"Statistics\s*\(packets/bytes\)\s*"
+    r"Matched\s*:\s*(?P<matched_packets>\d+)/(?P<matched_bytes>\d+)\s*"
+    r"(?:Transmitted\s*:\s*(?P<transmitted_packets>\d+)/(?P<transmitted_bytes>\d+)\s*)?"
+    r"(?:Dropped\s*:\s*(?P<dropped_packets>\d+)/(?P<dropped_bytes>\d+)\s*)?"
+)
 
-def _cisco_pattern() -> re.Pattern:
-    prefix = r"(?P<{key}>[^\s,]+)"
-    number = r"(?P<{key}>(,?(((=|>=|<=)\d+)&?))+)"
+RE_FIND_COMPONENTS = re.compile(
+    r"(?P<key>Dest|Source|Proto|Port|DPort|SPort|Length|ICMPCode|ICMPType|TCPFlags|Frag):(?P<value>[^,\s]+)"
+)
 
-    dest = prefix.format(key="dest")
-    source = prefix.format(key="source")
-    proto = number.format(key="proto")
-    dport = number.format(key="dport")
-    sport = number.format(key="sport")
-    length = number.format(key="length")
-    tcp_flags = r"(?P<tcp_flags>~0x[0-9a-f]+)"
-    frag = r"(?P<frag>~[a-zA-Z]+)"
+RE_FIND_NUMERIC_VALUES = re.compile(r"(?P<op>[><=!]+)(?P<val>\d+)(?P<and_or>[|&])?")
 
-    action = r"(?P<action>Traffic-rate|Redirect|transmit)"
-    traffic_rate_bps = r"(?P<traffic_rate_bps>\d+)"
+RE_FIND_BITMASK_VALUES = re.compile(
+    r"(?P<not>!)?(?P<match>[=~])(?P<val>[^|&]+)(?P<and_or>[|&])?"
+)
 
-    matched_packets = r"(?P<matched_packets>\d+)"
-    matched_bytes = r"(?P<matched_bytes>\d+)"
-    transmitted_packets = r"(?P<transmitted_packets>\d+)"
-    transmitted_bytes = r"(?P<transmitted_bytes>\d+)"
-    dropped_packets = r"(?P<dropped_packets>\d+)"
-    dropped_bytes = r"(?P<dropped_bytes>\d+)"
-
-    return re.compile(
-        rf"Flow\s*:(?P<raw>((Dest:{dest}|Source:{source}|Proto:{proto}|DPort:{dport}|SPort:{sport}|Length:{length}|TCPFlags:{tcp_flags}|Frag:{frag}),?)+).*?"
-        + rf"Actions\s*:{action}(:\s*{traffic_rate_bps} bps)?.*?"
-        + rf"Matched\s*:\s*{matched_packets}/{matched_bytes}[^\w]*"
-        + rf"(Transmitted\s*:\s*{transmitted_packets}/{transmitted_bytes}[^\w]*)?"
-        + rf"(Dropped\s*:\s*{dropped_packets}/{dropped_bytes})?",
-        re.DOTALL | re.MULTILINE | re.IGNORECASE,
-    )
+RE_MATCH_ACTION = re.compile(
+    r"(?P<action>(?:Traffic-rate:\s*(?P<bps>\d+)\s*bps)|Redirect|transmit)"
+)
 
 
-CISCO_PATTERN = _cisco_pattern()
+def _parse_prefix(value: str) -> IPNetwork | None:
+    return IPNetwork(value, expand_partial=True)
 
 
-def parse_flow_spec_cisco_ios(data: str) -> list[FlowSpec]:
-    entries = CISCO_PATTERN.finditer(data)
+def _parse_numeric_values(value: str) -> NumericValues:
+    values, set_and = NumericValues(), False
 
-    flow_specs: list[FlowSpec] = []
+    for i in RE_FIND_NUMERIC_VALUES.finditer(value):
+        numeric_op: NumericOp
 
-    for entry in entries:
-        flow_spec = FlowSpec(raw=entry.group("raw"))
-
-        if dest := entry.group("dest"):
-            flow_spec.destination_prefix = parse_prefix(dest)
-        if source := entry.group("source"):
-            flow_spec.source_prefix = parse_prefix(source)
-        if proto := entry.group("proto"):
-            flow_spec.ip_protocol = parse_numeric_values(proto)
-        if dport := entry.group("dport"):
-            flow_spec.destination_port = parse_numeric_values(dport)
-        if sport := entry.group("sport"):
-            flow_spec.source_port = parse_numeric_values(sport)
-        if length := entry.group("length"):
-            flow_spec.packet_length = parse_numeric_values(length)
-        if tcp_flags := entry.group("tcp_flags"):
-            flow_spec.tcp_flags = parse_bitmask(tcp_flags[1:])
-        if frag := entry.group("frag"):
-            flow_spec.fragment = _parse_frag(frag)
-
-        match entry.group("action"):
-            case "transmit":
-                flow_spec.action = Action.ACCEPT
-            case "Traffic-rate":
-                if entry["traffic_rate_bps"] == "0":
-                    flow_spec.action = Action.DISCARD
-                else:
-                    flow_spec.action = Action.RATE_LIMIT
-                    flow_spec.rate_limit_bps = int(entry.group("traffic_rate_bps"))
+        match i.group("op"):
+            case ">=":
+                numeric_op = NumericOpGte
+            case "<=":
+                numeric_op = NumericOpLte
+            case "=":
+                numeric_op = NumericOpEq
+            case "!=":
+                numeric_op = NumericOpNe
+            case ">":
+                numeric_op = NumericOpGt
+            case "<":
+                numeric_op = NumericOpLt
             case _:
-                pass
+                logger.error("Invalid operator: %s", i.group("op"))
+                continue
 
-        if matched_packets := entry.group("matched_packets"):
-            flow_spec.matched_packets = int(matched_packets)
-        if matched_bytes := entry.group("matched_bytes"):
-            flow_spec.matched_bytes = int(matched_bytes)
+        values.append((numeric_op.set_and(set_and), int(i.group("val"))))
 
-        if (transmitted_packets := entry.group("transmitted_packets")) is not None:
-            flow_spec.transmitted_packets = int(transmitted_packets)
-        if (transmitted_bytes := entry.group("transmitted_bytes")) is not None:
-            flow_spec.transmitted_bytes = int(transmitted_bytes)
+        set_and = i.group("and_or") == "&"
 
-        if (dropped_packets := entry.group("dropped_packets")) is not None:
-            flow_spec.dropped_packets = int(dropped_packets)
-        if (dropped_bytes := entry.group("dropped_bytes")) is not None:
-            flow_spec.dropped_bytes = int(dropped_bytes)
+    return values
 
-        flow_specs.append(flow_spec)
 
-    return flow_specs
+def _parse_bitmask_values(value: str) -> BitmaskValues:
+    values, set_and = BitmaskValues(), False
+
+    for i in RE_FIND_BITMASK_VALUES.finditer(value):
+        not_ = i.group("not") is not None
+        match_ = i.group("match") == "="
+
+        val: str = i.group("val")
+
+        if val.startswith("0x"):
+            value_int = int(val, 16)
+        else:
+            value_int = 0
+
+            for v in val.split(":"):
+                match v:
+                    case "DF":
+                        value_int |= 0x01
+                    case "IsF":
+                        value_int |= 0x02
+                    case "FF":
+                        value_int |= 0x04
+                    case "LF":
+                        value_int |= 0x08
+                    case _:
+                        logger.error("Unknown fragment type: %s", v)
+                        continue
+
+        values.append((BitmaskOp(not_=not_, match=match_).set_and(set_and), value_int))
+
+        set_and = i.group("and_or") == "&"
+
+    return values
+
+
+def parse_output(data: str) -> list[FlowSpec]:
+    flowspecs: list[FlowSpec] = []
+
+    for match in RE_FIND_FLOWS.finditer(data):
+        flowspec = FlowSpec()
+
+        raw = match.group("raw").strip()
+
+        flowspec.raw = raw
+
+        logger.debug("Parsing flowspec: %s", raw)
+
+        for key, value in RE_FIND_COMPONENTS.findall(raw):
+            key: str
+            value: str
+
+            key, value = key.strip(), value.strip()
+
+            match key:
+                case "Dest":
+                    flowspec.destination_prefix = _parse_prefix(value)
+                case "Source":
+                    flowspec.source_prefix = _parse_prefix(value)
+                case "Proto":
+                    flowspec.ip_protocol = _parse_numeric_values(value)
+                case "Port":
+                    flowspec.port = _parse_numeric_values(value)
+                case "DPort":
+                    flowspec.destination_port = _parse_numeric_values(value)
+                case "SPort":
+                    flowspec.source_port = _parse_numeric_values(value)
+                case "Length":
+                    flowspec.packet_length = _parse_numeric_values(value)
+                case "ICMPCode":
+                    flowspec.icmp_code = _parse_numeric_values(value)
+                case "ICMPType":
+                    flowspec.icmp_type = _parse_numeric_values(value)
+                case "TCPFlags":
+                    flowspec.tcp_flags = _parse_bitmask_values(value)
+                case "Frag":
+                    flowspec.fragment = _parse_bitmask_values(value)
+                case _:
+                    logger.error("Unknown key: %s", key)
+                    continue
+
+        flowspec.matched_bytes = int(match.group("matched_bytes"))
+        flowspec.matched_packets = int(match.group("matched_packets"))
+
+        if (transmitted_packets := match.group("transmitted_packets")) is not None:
+            flowspec.transmitted_packets = int(transmitted_packets)
+        if (transmitted_bytes := match.group("transmitted_bytes")) is not None:
+            flowspec.transmitted_bytes = int(transmitted_bytes)
+
+        if (dropped_packets := match.group("dropped_packets")) is not None:
+            flowspec.dropped_packets = int(dropped_packets)
+        if (dropped_bytes := match.group("dropped_bytes")) is not None:
+            flowspec.dropped_bytes = int(dropped_bytes)
+
+        actions = match.group("actions")
+
+        if (actions_match := RE_MATCH_ACTION.search(actions)) is not None:
+            action = actions_match.group("action").lower()
+
+            if action.startswith("traffic-rate"):
+                bps = int(actions_match.group("bps"))
+
+                if bps == 0:
+                    flowspec.action = Action.DISCARD
+                else:
+                    flowspec.action = Action.RATE_LIMIT
+                    flowspec.rate_limit_bps = bps
+            elif action == "redirect":
+                flowspec.action = Action.REDIRECT
+            elif action == "transmit":
+                flowspec.action = Action.ACCEPT
+            else:
+                logger.error("Unknown action: %s", action)
+                continue
+        else:
+            logger.error("Failed to parse action from: %s", actions)
+            continue
+
+        flowspecs.append(flowspec)
+
+    return flowspecs
+
+
+class FlowSpecCiscoIosKwargs(TypedDict):
+    vrf: NotRequired[str]
+
+
+async def parse_flow_spec_cisco_ios(
+    connection: SSHClientConnection,
+    **kwargs: Unpack[FlowSpecCiscoIosKwargs],
+) -> list[FlowSpec]:
+    vrf = kwargs.get("vrf", DEFAULT_VRF)
+
+    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf)
+
+    logger.info("Sending command", extra={"command": command})
+    result = await connection.run(command, check=True)
+
+    output = str(result.stdout)
+    logger.info("Command output", extra={"output": output})
+
+    return parse_output(output)

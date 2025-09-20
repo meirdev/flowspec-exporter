@@ -67,7 +67,7 @@ async def scrape(db_conn: sqlite3.Connection, router: Router):
         logger.debug("Connected to router", extra={"router": router.name})
 
         while True:
-            entries = parse_flow_spec(
+            entries = await parse_flow_spec(
                 platform=cast(Platform, router.platform),
                 connection=conn,
                 **router.parameters,

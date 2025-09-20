@@ -11,6 +11,7 @@ class Action(StrEnum):
     ACCEPT = "accept"
     DISCARD = "discard"
     RATE_LIMIT = "rate-limit"
+    REDIRECT = "redirect"
 
 
 class CommandType(IntEnum):
@@ -135,7 +136,7 @@ class BitmaskOp:
             s += "!"
 
         if self.match:
-            s += ":"
+            s += "="
 
         return s
 

@@ -51,7 +51,7 @@ RE_FIND_NUMERIC_VALUES = re.compile(
 )
 
 RE_FIND_BITMASK_VALUES = re.compile(
-    r"((?P<not>not)?(?P<match>match|any-match)\s+(?P<val>\d+|\([^>]+\))(\s+(?P<and_or>and|or))?)+"
+    r"((?P<not>not)?(?P<match>match|any-match)\s+(?P<val>\d+|\([^)]+\))(\s+(?P<and_or>and|or))?)+"
 )
 
 
@@ -138,7 +138,7 @@ async def _read_until_shell_prompt(stdout: SSHReader) -> str:
     return re.sub(r"<.*?>$", "", await stdout.readuntil(RE_SHELL_PROMPT)).strip()
 
 
-def _parse_flows(output: str) -> list[FlowSpec]:
+def parse_flows(output: str) -> list[FlowSpec]:
     flowspecs: list[FlowSpec] = []
 
     for re_index, dissemination_rules in RE_FIND_FLOWS.findall(output):
@@ -187,7 +187,7 @@ def _parse_flows(output: str) -> list[FlowSpec]:
     return flowspecs
 
 
-def _parse_flow_statistics(output: str) -> FlowStatistic:
+def parse_flow_statistics(output: str) -> FlowStatistic:
     statistics: dict[str, dict[str, int]] = {}
 
     for key, packets_pps, bytes_bps in RE_FIND_STATISTICS.findall(output):
@@ -221,13 +221,13 @@ async def parse_flow_spec_huawei_vrp(
 
     command = COMMAND_DISPLAY_ROUTING_TABLE.format(vpn_instance=kwargs["vpn_instance"])
 
-    logger.info("Sending command: %s", command)
+    logger.info("Sending command", extra={"command": command})
     writer.write(f"{command}\n")
 
     output = await _read_until_shell_prompt(stdout)
-    logger.info("Command output: %s", output)
+    logger.info("Command output", extra={"output": output})
 
-    flowspecs: list[FlowSpec] = _parse_flows(output)
+    flowspecs: list[FlowSpec] = parse_flows(output)
 
     for flowspec in flowspecs:
         re_index = flowspec.metadata.get("re_index")
@@ -236,13 +236,13 @@ async def parse_flow_spec_huawei_vrp(
             vpn_instance=kwargs["vpn_instance"], re_index=re_index
         )
 
-        logger.info("Sending command: %s", command)
+        logger.info("Sending command", extra={"command": command})
         writer.write(f"{command}\n")
 
         output = await _read_until_shell_prompt(stdout)
-        logger.info("Command output: %s", output)
+        logger.info("Command output", extra={"output": output})
 
-        statistics = _parse_flow_statistics(output)
+        statistics = parse_flow_statistics(output)
         logger.debug("Statistics: %s", statistics)
 
         flowspec.matched_packets = statistics["matched_packets"]
