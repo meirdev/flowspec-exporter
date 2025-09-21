@@ -120,7 +120,7 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
     return values
 
 
-def parse_output(data: str) -> list[FlowSpec]:
+def parse_flows(data: str) -> list[FlowSpec]:
     flowspecs: list[FlowSpec] = []
 
     for match in RE_FIND_FLOWS.finditer(data):
@@ -225,4 +225,4 @@ async def parse_flow_spec_cisco_ios(
     output = str(result.stdout)
     logger.info("Command output", extra={"output": output})
 
-    return parse_output(output)
+    return parse_flows(output)
