@@ -36,7 +36,7 @@ RE_FIND_COMPONENTS = re.compile(
     r"(?P<key>proto|port|dstport|srcport|icmp-type|icmp-code|tcp-flag|len|dscp|frag)(?P<value>[^a-z]+)"
 )
 
-RE_FIND_NUMERIC_VALUES = re.compile(r"(?P<op>[><=!]+)(?P<val>\d+)(?P<and_or>[,&])?")
+RE_FIND_NUMERIC_VALUES = re.compile(r"(?P<op>[><=]+)(?P<val>\d+)(?P<and_or>[,&])?")
 
 RE_FIND_BITMASK_VALUES = re.compile(
     r"(?P<not>!)?(?P<match>[:=])(?P<val>\d+)(?P<and_or>[,&])?"
@@ -94,7 +94,7 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
     return values
 
 
-def parse_output(output: str) -> list[FlowSpec]:
+def parse_flows(output: str) -> list[FlowSpec]:
     flowspecs: list[FlowSpec] = []
 
     for raw, bytes, packets in RE_FIND_COUNTERS_AND_POLICERS.findall(output):
@@ -212,4 +212,4 @@ async def parse_flow_spec_juniper_junos(
     output = str(result.stdout)
     logger.info("Command output", extra={"output": output})
 
-    return parse_output(output)
+    return parse_flows(output)
