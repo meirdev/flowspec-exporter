@@ -173,14 +173,22 @@ class BitmaskValues(UserList[tuple[BitmaskOp, int]]):
         return "".join(s).strip()
 
 
+def _str_encode(obj: object) -> str | None:
+    if obj is None:
+        return None
+    return str(obj)
+
+
 @dataclass_json
 @dataclass
 class FlowSpec:
     raw: str = ""
     destination_prefix: IPNetwork | None = field(
-        default=None, metadata=config(encoder=str)
+        default=None, metadata=config(encoder=_str_encode)
     )
-    source_prefix: IPNetwork | None = field(default=None, metadata=config(encoder=str))
+    source_prefix: IPNetwork | None = field(
+        default=None, metadata=config(encoder=_str_encode)
+    )
     ip_protocol: NumericValues | None = None
     port: NumericValues | None = None
     destination_port: NumericValues | None = None
@@ -201,6 +209,8 @@ class FlowSpec:
     dropped_bytes: int | None = None
 
     metadata: dict[str, str] = field(default_factory=dict)
+
+    filter: str | None = None
 
     def str_filter(self) -> str:
         s = []
@@ -225,6 +235,12 @@ class FlowSpec:
                 s.append(f"{CommandType.from_str(key)}: {value}")
 
         return ", ".join(s)
+
+
+@dataclass_json
+@dataclass
+class FlowSpecs:
+    flows: list[FlowSpec]
 
 
 __all__ = [

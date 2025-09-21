@@ -28,8 +28,9 @@ RE_FIND_COUNTERS_AND_POLICERS = re.compile(
     r"^(?P<raw>[^\s]+)\s+(?P<bytes>\d+)\s+(?P<packets>\d+)$", re.MULTILINE
 )
 
+# Juniper has overflow issues with rate limit: -589934592K !
 RE_FIND_RATE_LIMIT_DST_SRC = re.compile(
-    r"(?:(?P<rate_limit>\d+)(?P<rate_limit_factor>K|M|G)_)?(?P<dst>[^,]+),(?P<src>[^,]+)"
+    r"(?:(?P<rate_limit>-?\d+)(?P<rate_limit_factor>K|M|G)_)?(?P<dst>[^,]+),(?P<src>[^,]+)"
 )
 
 RE_FIND_COMPONENTS = re.compile(
