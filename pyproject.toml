@@ -12,14 +12,7 @@ dependencies = [
     "pytimeparse>=1.1.8",
     "tenacity>=9.0.0",
     "dataclasses-json>=0.6.7",
-    "prometheus-client>=0.23.1",
     "asyncpg>=0.30.0",
-]
-
-[project.optional-dependencies]
-app = [
-    "streamlit>=1.42.2",
-    "streamlit-autorefresh>=1.0.1",
 ]
 
 [tool.ruff.lint]
