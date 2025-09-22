@@ -12,6 +12,12 @@ uv sync --all-extras
 
 - Edit the `config.toml` with your own values.
 
+- Make sure you have a PostgreSQL database running:
+
+```bash
+docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg17
+```
+
 - Run the worker:
 
 ```bash
