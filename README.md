@@ -1,8 +1,19 @@
-# FlowSpec parser
+# FlowSpec Parser
 
 A parser for BGP FlowSpec rules as they appear in the routers output.
 
-## How to use
+## Supported Routers
+
+- Cisco IOS
+- Juniper JunOS
+- Huawei VRP
+
+## Kwown Issues / Limitations
+
+- Long rules may be truncated in the routers output. Hence, the parser may not be able to parse them correctly.
+- Routers can interpret rules differently. So even if you send the same rule to different routers, they may appear differently in the output.
+
+## How to Use
 
 - Install the dependencies:
 
@@ -11,6 +22,12 @@ uv sync --all-extras
 ```
 
 - Edit the `config.toml` with your own values.
+
+- Make sure you have a PostgreSQL database running:
+
+```bash
+docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg17
+```
 
 - Run the worker:
 

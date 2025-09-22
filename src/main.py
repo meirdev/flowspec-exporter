@@ -1,18 +1,17 @@
 import argparse
-import dataclasses
-import json
 import sys
+from typing import Callable
 
-from .consts import COMMANDS
-from .parser import parse_flow_spec
+from src.flowspec import FlowSpec, FlowSpecs
+from src.routers.cisco_ios import parse_flows as cisco_ios_parse_flows
+from src.routers.huawei_vrp import parse_flows as huawei_vrp_parse_flows
+from src.routers.juniper_junos import parse_flows as juniper_junos_parse_flows
 
-
-class EnhancedJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)  # type: ignore
-        else:
-            return str(o)
+PARSERS: dict[str, Callable[[str], list[FlowSpec]]] = {
+    "cisco_ios_parse_flows": cisco_ios_parse_flows,
+    "huawei_vrp_parse_flows": huawei_vrp_parse_flows,
+    "juniper_junos_parse_flows": juniper_junos_parse_flows,
+}
 
 
 def main() -> None:
@@ -20,21 +19,22 @@ def main() -> None:
     arg_parser.add_argument(
         "file", nargs="?", type=argparse.FileType("r"), default=sys.stdin
     )
-    arg_parser.add_argument(
-        "-p", "--platform", required=True, choices=COMMANDS.keys(), type=str
-    )
-    arg_parser.add_argument(
-        "-c", "--command", type=str, help="Command used to fetch the flow spec data"
-    )
+    arg_parser.add_argument("parser", choices=PARSERS.keys())
 
     args = arg_parser.parse_args()
 
     data = args.file.read()
 
-    command = args.command or COMMANDS[args.platform]
-    entries = parse_flow_spec(args.platform, data, command)
+    parser = PARSERS[args.parser]
 
-    print(json.dumps(entries, cls=EnhancedJSONEncoder, indent=2))
+    flows = parser(data)
+
+    for flow in flows:
+        flow.filter = flow.str_filter()
+
+    flowspecs = FlowSpecs(flows=flows)
+
+    print(flowspecs.to_json(indent=2, default=str))  # type: ignore
 
 
 if __name__ == "__main__":
