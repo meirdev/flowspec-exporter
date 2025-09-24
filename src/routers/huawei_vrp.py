@@ -30,7 +30,8 @@ COMMAND_DISPLAY_ROUTING_TABLE = (
 )
 
 RE_FIND_FLOWS = re.compile(
-    r"ReIndex\s*:\s*(?P<re_index>\d+)\s+Dissemination Rules:\s+(?P<dissemination_rules>[^*]+)"
+    r"ReIndex\s*:\s*(?P<re_index>\d+)\s+Dissemination Rules:\s+(?P<dissemination_rules>.+?)(?=ReIndex|\Z)",
+    re.DOTALL | re.MULTILINE,
 )
 RE_FIND_RULES = re.compile(
     r"(?P<key>Destination IP|Source IP|Protocol|Port|Src\. Port|Dest\. Port|ICMP Type|ICMP Code|TCP-flags|FragmentType|Packet-Length)\s*:\s*(?P<value>[^\n\r]+)"
