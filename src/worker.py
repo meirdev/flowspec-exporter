@@ -21,7 +21,7 @@ DEFAULT_SSH_PORT = 22
 
 RETRY_INTERVAL = 10
 
-logger = logging.getLogger("router-scraper-worker")
+logger = logging.getLogger("flowspecs-collector-worker")
 
 logger_handler = logging.StreamHandler()
 logger_handler.setFormatter(JsonFormatter())
