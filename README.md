@@ -1,6 +1,8 @@
-# FlowSpec Parser
+# FlowSpec Exporter
 
-A parser for BGP FlowSpec rules as they appear in the routers output.
+A tool to export FlowSpec rules from routers and parse them into a structured format.
+
+You can either collect the data directly into a PostgreSQL database or export it and use Prometheus to scrape it.
 
 ## Supported Routers
 
@@ -18,7 +20,7 @@ A parser for BGP FlowSpec rules as they appear in the routers output.
 - Install the dependencies:
 
 ```bash
-uv sync --all-extras
+uv sync
 ```
 
 - Edit the `config.toml` with your own values.
@@ -33,10 +35,4 @@ docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password time
 
 ```bash
 python -m src.worker
-```
-
-- Open the web interface:
-
-```bash
-python -m streamlit run ./src/app.py
 ```
