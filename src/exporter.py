@@ -21,7 +21,7 @@ DEFAULT_SSH_PORT = 22
 
 DEFAULT_SSH_CONNECT_TIMEOUT = 10
 
-logger = logging.getLogger("flowspecs-collector")
+logger = logging.getLogger("flowspec-exporter")
 
 logger_handler = logging.StreamHandler()
 logger_handler.setFormatter(JsonFormatter())

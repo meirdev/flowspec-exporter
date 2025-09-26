@@ -21,7 +21,7 @@ DEFAULT_SSH_PORT = 22
 
 RETRY_INTERVAL = 10
 
-logger = logging.getLogger("flowspecs-collector-worker")
+logger = logging.getLogger("flowspec-collector-worker")
 
 logger_handler = logging.StreamHandler()
 logger_handler.setFormatter(JsonFormatter())
