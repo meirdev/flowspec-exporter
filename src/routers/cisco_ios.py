@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_VRF = "all"
 
-COMMAND_SHOW_FLOWSPEC = "show flowspec vrf {vrf} ipv4 detail"
+DEFAULT_IP_VERSION = "ipv4"
+
+COMMAND_SHOW_FLOWSPEC = "show flowspec vrf {vrf} {ip_version} detail"
 
 RE_FIND_FLOWS = re.compile(
     r"Flow\s*:\s*(?P<raw>[^\n\r]+)\s*"
@@ -217,7 +219,7 @@ async def parse_flow_spec_cisco_ios(
 ) -> list[FlowSpec]:
     vrf = kwargs.get("vrf", DEFAULT_VRF)
 
-    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf)
+    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf, ip_version=DEFAULT_IP_VERSION)
 
     logger.info("Sending command", extra={"command": command})
     result = await connection.run(command, check=True)
