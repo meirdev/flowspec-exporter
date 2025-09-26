@@ -100,7 +100,7 @@ class NumericOp:
         return s
 
 
-NumericOpFalse = NumericOp(and_=True)
+NumericOpFalse = NumericOp()
 
 NumericOpEq = NumericOp(eq=True)
 
@@ -114,7 +114,7 @@ NumericOpLte = NumericOp(lt=True, eq=True)
 
 NumericOpNe = NumericOp(gt=True, lt=True)
 
-NumericOpTrue = NumericOp(and_=True, eq=True)
+NumericOpTrue = NumericOp(lt=True, gt=True, eq=True)
 
 
 @dataclass_json
