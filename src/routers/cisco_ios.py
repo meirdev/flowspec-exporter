@@ -218,8 +218,9 @@ async def parse_flow_spec_cisco_ios(
     **kwargs: Unpack[FlowSpecCiscoIosKwargs],
 ) -> list[FlowSpec]:
     vrf = kwargs.get("vrf", DEFAULT_VRF)
+    ip_version = kwargs.get("ip_version", DEFAULT_IP_VERSION)
 
-    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf, ip_version=DEFAULT_IP_VERSION)
+    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf, ip_version=ip_version)
 
     logger.info("Sending command", extra={"command": command})
     result = await connection.run(command, check=True)
