@@ -1,0 +1,21 @@
+services:
+
+  timescaledb:
+    image: timescale/timescaledb-ha:pg17
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - timescaledb
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
