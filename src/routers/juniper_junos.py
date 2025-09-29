@@ -86,7 +86,7 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
         match_ = i.group("match") == "="
 
         val: str = i.group("val")
-        value_int = int(val)
+        value_int = int(val, 16)
 
         values.append((BitmaskOp(not_=not_, match=match_).set_and(set_and), value_int))
 
