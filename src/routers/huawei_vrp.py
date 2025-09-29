@@ -108,25 +108,30 @@ def _parse_bitmask_values(value: str) -> BitmaskValues:
 
     for i in RE_FIND_BITMASK_VALUES.finditer(value):
         not_ = i.group("not") is not None
-        match_ = i.group("match") == "any-match"
+        match_ = i.group("match") == "match"
 
         val: str = i.group("val")
 
         if val.isnumeric():
             value_int = int(val)
         else:
-            match val[1:-1]:  # Remove parentheses
-                case "Don't fragment":
-                    value_int = 0x01
-                case "Is a fragment":
-                    value_int = 0x02
-                case "First fragment":
-                    value_int = 0x04
-                case "Last fragment":
-                    value_int = 0x08
-                case _:
-                    logger.error("Unknown fragment type: %s", val)
-                    continue
+            val = val.strip("()")  # Remove parentheses
+
+            value_int = 0
+
+            for v in val.split(","):
+                match v.strip():
+                    case "Don't fragment":
+                        value_int |= 0x01
+                    case "Is a fragment":
+                        value_int |= 0x02
+                    case "First fragment":
+                        value_int |= 0x04
+                    case "Last fragment":
+                        value_int |= 0x08
+                    case _:
+                        logger.error("Unknown fragment type: %s", val)
+                        continue
 
         values.append((BitmaskOp(not_=not_, match=match_).set_and(set_and), value_int))
 
