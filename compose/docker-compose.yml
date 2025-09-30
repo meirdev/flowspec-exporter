@@ -19,3 +19,11 @@ services:
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    ports:
+      - "9090:9090"
+    restart: always
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml

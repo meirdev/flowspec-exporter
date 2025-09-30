@@ -11,3 +11,7 @@ datasources:
       timescaledb: true
     secureJsonData:
       password: password
+
+  - name: Prometheus
+    type: prometheus
+    url: http://prometheus:9090
