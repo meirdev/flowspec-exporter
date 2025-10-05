@@ -20,7 +20,7 @@ You can either collect the data directly into a PostgreSQL database or export it
 - Install the dependencies:
 
 ```bash
-uv sync
+uv sync --extra all
 ```
 
 - Edit the `config.toml` with your own values.
