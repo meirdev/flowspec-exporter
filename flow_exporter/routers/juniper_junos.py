@@ -5,7 +5,7 @@ from typing import NotRequired, TypedDict, Unpack
 from asyncssh import SSHClientConnection
 from netaddr import IPNetwork
 
-from src.flowspec import (
+from flow_exporter.flowspec import (
     Action,
     BitmaskOp,
     BitmaskValues,
