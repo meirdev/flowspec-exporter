@@ -1,5 +1,5 @@
 [project]
-name = "flowspec-exporter"
+name = "flowspec_exporter"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"

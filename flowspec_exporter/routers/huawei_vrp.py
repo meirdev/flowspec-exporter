@@ -5,7 +5,7 @@ from typing import TypedDict, Unpack
 from asyncssh import SSHClientConnection, SSHReader
 from netaddr import IPNetwork
 
-from flow_exporter.flowspec import (
+from flowspec_exporter.flowspec import (
     BitmaskOp,
     BitmaskValues,
     FlowSpec,

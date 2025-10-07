@@ -12,7 +12,7 @@ import tenacity
 from pythonjsonlogger.json import JsonFormatter
 from pytimeparse import parse as parse_time  # type: ignore
 
-from flow_exporter.parser import Platform, parse_flow_spec
+from flowspec_exporter.parser import Platform, parse_flow_spec
 
 DEFAULT_SCRAP_INTERVAL = "1m"
 DEFAULT_SCRAP_TIMEOUT = "10s"

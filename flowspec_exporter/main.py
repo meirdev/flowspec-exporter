@@ -2,10 +2,12 @@ import argparse
 import sys
 from typing import Callable
 
-from flow_exporter.flowspec import FlowSpec, FlowSpecs
-from flow_exporter.routers.cisco_ios import parse_flows as cisco_ios_parse_flows
-from flow_exporter.routers.huawei_vrp import parse_flows as huawei_vrp_parse_flows
-from flow_exporter.routers.juniper_junos import parse_flows as juniper_junos_parse_flows
+from flowspec_exporter.flowspec import FlowSpec, FlowSpecs
+from flowspec_exporter.routers.cisco_ios import parse_flows as cisco_ios_parse_flows
+from flowspec_exporter.routers.huawei_vrp import parse_flows as huawei_vrp_parse_flows
+from flowspec_exporter.routers.juniper_junos import (
+    parse_flows as juniper_junos_parse_flows,
+)
 
 PARSERS: dict[str, Callable[[str], list[FlowSpec]]] = {
     "cisco_ios_parse_flows": cisco_ios_parse_flows,

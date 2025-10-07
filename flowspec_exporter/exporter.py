@@ -15,7 +15,7 @@ from prometheus_client import (
 )
 from pythonjsonlogger.json import JsonFormatter
 
-from flow_exporter.parser import Platform, parse_flow_spec
+from flowspec_exporter.parser import Platform, parse_flow_spec
 
 DEFAULT_SSH_PORT = 22
 
