@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FILTER_NAME = "__flowspec_default_inet__"
 
-COMMAND_SHOW_FIREWALL_FILTER = "show firewall filter detail {filter_name}"
+COMMAND_SHOW_FIREWALL_FILTER = "show firewall filter {filter_name}"
 
 RE_FIND_COUNTERS_AND_POLICERS = re.compile(
     r"^(?P<raw>[^\s]+)\s+(?P<bytes>\d+)\s+(?P<packets>\d+)$", re.MULTILINE
