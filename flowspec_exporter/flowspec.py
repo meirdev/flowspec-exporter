@@ -14,7 +14,7 @@ class Action(StrEnum):
     REDIRECT = "redirect"
 
 
-class CommandType(IntEnum):
+class ComponentType(IntEnum):
     DESTINATION_PREFIX = 1
     SOURCE_PREFIX = 2
     IP_PROTOCOL = 3
@@ -29,7 +29,7 @@ class CommandType(IntEnum):
     FRAGMENT = 12
 
     @classmethod
-    def from_str(cls, value: str) -> "CommandType":
+    def from_str(cls, value: str) -> "ComponentType":
         try:
             return cls[value.upper()]
         except KeyError:
@@ -37,29 +37,29 @@ class CommandType(IntEnum):
 
     def __str__(self) -> str:
         match self:
-            case CommandType.DESTINATION_PREFIX:
+            case ComponentType.DESTINATION_PREFIX:
                 return "destination-prefix"
-            case CommandType.SOURCE_PREFIX:
+            case ComponentType.SOURCE_PREFIX:
                 return "source-prefix"
-            case CommandType.IP_PROTOCOL:
+            case ComponentType.IP_PROTOCOL:
                 return "ip-protocol"
-            case CommandType.PORT:
+            case ComponentType.PORT:
                 return "port"
-            case CommandType.DESTINATION_PORT:
+            case ComponentType.DESTINATION_PORT:
                 return "destination-port"
-            case CommandType.SOURCE_PORT:
+            case ComponentType.SOURCE_PORT:
                 return "source-port"
-            case CommandType.ICMP_TYPE:
+            case ComponentType.ICMP_TYPE:
                 return "icmp-type"
-            case CommandType.ICMP_CODE:
+            case ComponentType.ICMP_CODE:
                 return "icmp-code"
-            case CommandType.TCP_FLAGS:
+            case ComponentType.TCP_FLAGS:
                 return "tcp-flags"
-            case CommandType.PACKET_LENGTH:
+            case ComponentType.PACKET_LENGTH:
                 return "packet-length"
-            case CommandType.DSCP:
+            case ComponentType.DSCP:
                 return "dscp"
-            case CommandType.FRAGMENT:
+            case ComponentType.FRAGMENT:
                 return "fragment"
 
 
@@ -232,7 +232,7 @@ class FlowSpec:
             value = getattr(self, key)
 
             if value is not None:
-                s.append(f"{CommandType.from_str(key)}: {value}")
+                s.append(f"{ComponentType.from_str(key)}: {value}")
 
         return ", ".join(s)
 
@@ -245,7 +245,7 @@ class FlowSpecs:
 
 __all__ = [
     "Action",
-    "CommandType",
+    "ComponentType",
     "NumericOp",
     "NumericOpFalse",
     "NumericOpEq",
