@@ -1,10 +1,27 @@
+import itertools
+import math
 from collections import UserList
 from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
-from typing import Self
+from typing import NamedTuple, Self
 
 from dataclasses_json import config, dataclass_json
 from netaddr import IPNetwork
+
+COMPONENTS = (
+    "destination_prefix",
+    "source_prefix",
+    "ip_protocol",
+    "port",
+    "destination_port",
+    "source_port",
+    "icmp_type",
+    "icmp_code",
+    "tcp_flags",
+    "packet_length",
+    "dscp",
+    "fragment",
+)
 
 
 class Action(StrEnum):
@@ -156,6 +173,41 @@ class NumericValues(UserList[tuple[NumericOp, int]]):
 
         return "".join(s).strip()
 
+    def __bytes__(self) -> bytes:
+        result = bytearray()
+
+        for i, (op, value) in enumerate(self.data):
+            is_last = i == len(self.data) - 1
+            size = _get_bytes_size(value)
+
+            op_byte = 0
+
+            if is_last:
+                op_byte |= 0b10000000
+            if op.and_:
+                op_byte |= 0b01000000
+
+            if size == 1:
+                op_byte |= 0b00000000
+            elif size == 2:
+                op_byte |= 0b00010000
+            elif size == 4:
+                op_byte |= 0b00100000
+            elif size == 8:
+                op_byte |= 0b00110000
+
+            if op.lt:
+                op_byte |= 0b00000100
+            if op.gt:
+                op_byte |= 0b00000010
+            if op.eq:
+                op_byte |= 0b00000001
+
+            result.extend(op_byte.to_bytes(1))
+            result.extend(value.to_bytes(size))
+
+        return bytes(result)
+
 
 class BitmaskValues(UserList[tuple[BitmaskOp, int]]):
     def __init__(self, *args: tuple[BitmaskOp, int]):
@@ -172,11 +224,122 @@ class BitmaskValues(UserList[tuple[BitmaskOp, int]]):
 
         return "".join(s).strip()
 
+    def __bytes__(self) -> bytes:
+        result = bytearray()
+
+        for i, (op, value) in enumerate(self.data):
+            is_last = i == len(self.data) - 1
+            size = _get_bytes_size(value)
+
+            op_byte = 0
+
+            if is_last:
+                op_byte |= 0b10000000
+            if op.and_:
+                op_byte |= 0b01000000
+
+            if size == 1:
+                op_byte |= 0b00000000
+            elif size == 2:
+                op_byte |= 0b00010000
+            elif size == 4:
+                op_byte |= 0b00100000
+            elif size == 8:
+                op_byte |= 0b00110000
+
+            if op.not_:
+                op_byte |= 0b00000010
+            if op.match:
+                op_byte |= 0b00000001
+
+            result.extend(op_byte.to_bytes(1))
+            result.extend(value.to_bytes(size))
+
+        return bytes(result)
+
 
 def _str_encode(obj: object) -> str | None:
     if obj is None:
         return None
     return str(obj)
+
+
+def _get_bytes_size(n: int) -> int:
+    bits = n.bit_length()
+    if bits <= 8:
+        return 1
+    if bits <= 16:
+        return 2
+    if bits <= 32:
+        return 4
+    return 8
+
+
+def ipnetwork_to_bytes(net: IPNetwork) -> bytes:
+    result = bytearray()
+
+    result.extend(net.prefixlen.to_bytes())
+    result.extend(net.ip.packed[: math.ceil(net.prefixlen / 8)])
+
+    return bytes(result)
+
+
+class NLRIComponent(NamedTuple):
+    component_type: ComponentType
+    op_value: bytes | IPNetwork
+
+
+class NLRI(UserList[NLRIComponent]):
+    def __lt__(self, other):
+        for comp_a, comp_b in itertools.zip_longest(self, other):
+            if not comp_a:
+                return True
+            if not comp_b:
+                return False
+
+            comp_a: NLRIComponent
+            comp_b: NLRIComponent
+
+            if comp_a.component_type < comp_b.component_type:
+                return False
+            if comp_a.component_type > comp_b.component_type:
+                return True
+
+            if comp_a.component_type in (
+                ComponentType.DESTINATION_PREFIX,
+                ComponentType.SOURCE_PREFIX,
+            ):
+                assert isinstance(comp_a.op_value, IPNetwork)
+
+                if (
+                    comp_a.op_value in comp_b.op_value
+                    or comp_b.op_value in comp_a.op_value
+                ):
+                    if comp_a.op_value.prefixlen > comp_b.op_value.prefixlen:
+                        return False
+                    if comp_a.op_value.prefixlen < comp_b.op_value.prefixlen:
+                        return True
+                elif comp_a.op_value > comp_b.op_value:
+                    return True
+                elif comp_a.op_value < comp_b.op_value:
+                    return False
+            else:
+                if len(comp_a.op_value) == len(comp_b.op_value):
+                    if comp_a.op_value > comp_b.op_value:
+                        return True
+                    if comp_a.op_value < comp_b.op_value:
+                        return False
+                else:
+                    common = min(len(comp_a.op_value), len(comp_b.op_value))
+                    if comp_a.op_value[:common] > comp_b.op_value[:common]:
+                        return True
+                    elif comp_a.op_value[:common] < comp_b.op_value[:common]:
+                        return False
+                    elif len(comp_a.op_value) > len(comp_b.op_value):
+                        return False
+                    else:
+                        return True
+        return False
 
 
 @dataclass_json
@@ -215,26 +378,31 @@ class FlowSpec:
     def str_filter(self) -> str:
         s = []
 
-        for key in (
-            "destination_prefix",
-            "source_prefix",
-            "ip_protocol",
-            "port",
-            "destination_port",
-            "source_port",
-            "icmp_type",
-            "icmp_code",
-            "tcp_flags",
-            "packet_length",
-            "dscp",
-            "fragment",
-        ):
+        for key in COMPONENTS:
             value = getattr(self, key)
 
             if value is not None:
                 s.append(f"{ComponentType.from_str(key)}: {value}")
 
         return ", ".join(s)
+
+    def to_nlri(self) -> NLRI:
+        nlri = NLRI()
+
+        for key in COMPONENTS:
+            value = getattr(self, key)
+
+            if value is not None:
+                component_type = ComponentType.from_str(key)
+
+                if isinstance(value, IPNetwork):
+                    data = value.cidr
+                elif isinstance(value, (BitmaskValues, NumericValues)):
+                    data = bytes(value)
+
+                nlri.append(NLRIComponent(component_type, data))
+
+        return nlri
 
 
 @dataclass_json
