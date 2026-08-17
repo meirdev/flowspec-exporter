@@ -108,7 +108,14 @@ exabgpcli neighbor $neighbor announce flow route destination $destination protoc
 
 # rate-limit
 
-exabgpcli neighbor $neighbor announce flow route destination $destination protocol '=6' destination-port '=8080' rate-limit 100000
+# 10,000 bytes = 10,000 * 8 bits = 80,000 bits = 80 Kbps
+exabgpcli neighbor $neighbor announce flow route destination $destination protocol '=6' destination-port '=8080' rate-limit 10000
+
+# 1,000,000 bytes = 1,000,000 * 8 bits = 8,000,000 bits = 8 Mbps
+exabgpcli neighbor $neighbor announce flow route destination $destination protocol '=6' destination-port '=8081' rate-limit 1000000
+
+# 1,000,000,000 bytes = 1,000,000,000 * 8 bits = 8,000,000,000 bits = 8 Gbps
+exabgpcli neighbor $neighbor announce flow route destination $destination protocol '=6' destination-port '=8082' rate-limit 1000000000
 
 # accept
 
