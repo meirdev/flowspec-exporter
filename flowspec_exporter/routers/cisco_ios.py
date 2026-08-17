@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import NotRequired, TypedDict, Unpack
+from typing import Literal, NotRequired, TypedDict, Unpack
 
 from asyncssh import SSHClientConnection
 from netaddr import IPNetwork
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_VRF = "all"
 
-DEFAULT_IP_VERSION = "ipv4"
+DEFAULT_INET_FAMILY = "ipv4"
 
-COMMAND_SHOW_FLOWSPEC = "show flowspec vrf {vrf} {ip_version} detail"
+COMMAND_SHOW_FLOWSPEC = "show flowspec vrf {vrf} {inet_family} detail"
 
 RE_FIND_FLOWS = re.compile(
     r"Flow\s*:\s*(?P<raw>[^\n\r]+)\s*"
@@ -211,6 +211,7 @@ def parse_flows(data: str) -> list[FlowSpec]:
 
 class FlowSpecCiscoIosKwargs(TypedDict):
     vrf: NotRequired[str]
+    inet_family: NotRequired[Literal["ipv4", "ipv6"]]
 
 
 async def parse_flow_spec_cisco_ios(
@@ -218,9 +219,9 @@ async def parse_flow_spec_cisco_ios(
     **kwargs: Unpack[FlowSpecCiscoIosKwargs],
 ) -> list[FlowSpec]:
     vrf = kwargs.get("vrf", DEFAULT_VRF)
-    ip_version = kwargs.get("ip_version", DEFAULT_IP_VERSION)
+    inet_family = kwargs.get("inet_family", DEFAULT_INET_FAMILY)
 
-    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf, ip_version=ip_version)
+    command = COMMAND_SHOW_FLOWSPEC.format(vrf=vrf, inet_family=inet_family)
 
     logger.info("Sending command", extra={"command": command})
     result = await connection.run(command, check=True)
