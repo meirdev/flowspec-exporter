@@ -3,13 +3,14 @@ from typing import Literal
 from asyncssh import SSHClientConnection
 
 from flowspec_exporter.flowspec import FlowSpec
+from flowspec_exporter.routers.arista_eos import parse_flow_spec_arista_eos
 from flowspec_exporter.routers.cisco_ios import parse_flow_spec_cisco_ios
 from flowspec_exporter.routers.huawei_vrp import parse_flow_spec_huawei_vrp
 from flowspec_exporter.routers.juniper_junos import parse_flow_spec_juniper_junos
 
-type Platform = Literal["cisco_ios", "juniper_junos", "huawei_vrp"]
+type Platform = Literal["cisco_ios", "juniper_junos", "huawei_vrp", "arista_eos"]
 
-PLATFORMS = ["cisco_ios", "juniper_junos", "huawei_vrp"]
+PLATFORMS = ["cisco_ios", "juniper_junos", "huawei_vrp", "arista_eos"]
 
 
 async def parse_flow_spec(
@@ -24,5 +25,7 @@ async def parse_flow_spec(
             return await parse_flow_spec_juniper_junos(connection, **kwargs)
         case "huawei_vrp":
             return await parse_flow_spec_huawei_vrp(connection, **kwargs)
+        case "arista_eos":
+            return await parse_flow_spec_arista_eos(connection, **kwargs)
         case _:
             raise ValueError(f"Unsupported platform: {platform}")

@@ -3,6 +3,7 @@ import sys
 from typing import Callable
 
 from flowspec_exporter.flowspec import FlowSpec, FlowSpecs
+from flowspec_exporter.routers.arista_eos import parse_flows as arista_eos_parse_flows
 from flowspec_exporter.routers.cisco_ios import parse_flows as cisco_ios_parse_flows
 from flowspec_exporter.routers.huawei_vrp import parse_flows as huawei_vrp_parse_flows
 from flowspec_exporter.routers.juniper_junos import (
@@ -13,6 +14,7 @@ PARSERS: dict[str, Callable[[str], list[FlowSpec]]] = {
     "cisco_ios_parse_flows": cisco_ios_parse_flows,
     "huawei_vrp_parse_flows": huawei_vrp_parse_flows,
     "juniper_junos_parse_flows": juniper_junos_parse_flows,
+    "arista_eos_parse_flows": arista_eos_parse_flows,
 }
 
 

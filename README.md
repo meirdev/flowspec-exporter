@@ -9,6 +9,7 @@ You can either collect the data directly into a PostgreSQL database or export it
 - Cisco IOS
 - Juniper JunOS
 - Huawei VRP
+- Arista EOS
 
 ## Kwown Issues / Limitations
 
