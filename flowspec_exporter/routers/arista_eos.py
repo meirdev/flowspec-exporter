@@ -82,7 +82,7 @@ def parse_flows(data: str) -> list[FlowSpec]:
 
                 counter_packets = counter_match.group("packets")
                 if counter_packets:
-                    flowspec.matched_packets = flowspec.transmitted_bytes = int(
+                    flowspec.matched_packets = flowspec.transmitted_packets = int(
                         counter_packets
                     )
 
