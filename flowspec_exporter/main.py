@@ -36,7 +36,7 @@ def main() -> None:
     for flow in flows:
         flow.filter = flow.str_filter()
 
-    flowspecs = FlowSpecs(flows=flows)
+    flowspecs = FlowSpecs(flows=flows).sorted_flows()
 
     print(flowspecs.to_json(indent=2, default=str))  # type: ignore
 

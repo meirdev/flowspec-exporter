@@ -287,7 +287,7 @@ class NLRIComponent(NamedTuple):
 
 
 class NLRI(UserList[NLRIComponent]):
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         for comp_a, comp_b in itertools.zip_longest(self, other):
             if not comp_a:
                 return True
@@ -412,6 +412,9 @@ class FlowSpec:
 @dataclass
 class FlowSpecs:
     flows: list[FlowSpec]
+
+    def sorted_flows(self) -> list[FlowSpec]:
+        return sorted(self.flows, key=FlowSpec.to_nlri, reverse=True)
 
 
 __all__ = [
