@@ -169,7 +169,7 @@ def parse_flows(output: str) -> list[FlowSpec]:
                 case "Port":
                     flowspec.port = _parse_numeric_values(value)
                 case "Src. Port":
-                    flowspec.port = _parse_numeric_values(value)
+                    flowspec.source_port = _parse_numeric_values(value)
                 case "Dest. Port":
                     flowspec.destination_port = _parse_numeric_values(value)
                 case "ICMP Type":
