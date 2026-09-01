@@ -32,9 +32,7 @@ RE_FIND_RULES = re.compile(
 
 RE_FIND_TCP_FLAGS = re.compile(r"TCP:(?P<tcp_flags>\d+)")
 
-RE_FIND_COUNTER = re.compile(
-    r"Counter: (?P<packets>\d+) packets, (?P<bytes>\d+) bytes"
-)
+RE_FIND_COUNTER = re.compile(r"Counter: (?P<packets>\d+) packets, (?P<bytes>\d+) bytes")
 
 RE_FIND_ACTIONS = re.compile(
     r"Actions:\s+(?P<action>Drop|(?:Police:\s+(?P<rate_limit>.+)))"
@@ -109,21 +107,17 @@ def parse_flows(data: str) -> list[FlowSpec]:
                     case "Source prefix":
                         flowspec.source_prefix = IPNetwork(value)
                     case "Next protocol":
-                        flowspec.ip_protocol = NumericValues(
-                            (NumericOpEq, int(value))
-                        )
+                        flowspec.ip_protocol = NumericValues((NumericOpEq, int(value)))
                     case "Destination port":
                         flowspec.destination_port = NumericValues(
                             (NumericOpEq, int(value))
                         )
                     case "Source port":
-                        flowspec.source_port = NumericValues(
-                            (NumericOpEq, int(value))
-                        )
+                        flowspec.source_port = NumericValues((NumericOpEq, int(value)))
 
             flowspecs.append(flowspec)
         except Exception:
-            pass
+            logger.exception("Failed to parse flowspec")
 
     return flowspecs
 
