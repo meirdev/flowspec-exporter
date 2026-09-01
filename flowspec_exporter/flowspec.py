@@ -307,6 +307,7 @@ class NLRI(UserList[NLRIComponent]):
                 ComponentType.SOURCE_PREFIX,
             ):
                 assert isinstance(comp_a.op_value, IPNetwork)
+                assert isinstance(comp_b.op_value, IPNetwork)
 
                 if (
                     comp_a.op_value in comp_b.op_value
@@ -321,6 +322,9 @@ class NLRI(UserList[NLRIComponent]):
                 elif comp_a.op_value < comp_b.op_value:
                     return False
             else:
+                assert isinstance(comp_a.op_value, bytes)
+                assert isinstance(comp_b.op_value, bytes)
+
                 if len(comp_a.op_value) == len(comp_b.op_value):
                     if comp_a.op_value > comp_b.op_value:
                         return True
@@ -396,6 +400,8 @@ class FlowSpec:
                     data = value.cidr
                 elif isinstance(value, (BitmaskValues, NumericValues)):
                     data = bytes(value)
+                else:
+                    raise ValueError(f"Unsupported value type: {type(value)}")
 
                 nlri.append(NLRIComponent(component_type, data))
 
