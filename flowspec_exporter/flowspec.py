@@ -413,8 +413,10 @@ class FlowSpec:
 class FlowSpecs:
     flows: list[FlowSpec]
 
-    def sorted_flows(self) -> list[FlowSpec]:
-        return sorted(self.flows, key=FlowSpec.to_nlri, reverse=True)
+    def sorted(self) -> "FlowSpecs":
+        sorted_flows = sorted(self.flows, key=FlowSpec.to_nlri, reverse=True)
+
+        return FlowSpecs(flows=sorted_flows)
 
 
 __all__ = [
