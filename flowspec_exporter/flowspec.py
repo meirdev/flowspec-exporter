@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 import math
 from collections import UserList
@@ -89,9 +90,7 @@ class NumericOp:
     eq: bool = False
 
     def set_and(self, value: bool) -> Self:
-        self.and_ = value
-
-        return self
+        return dataclasses.replace(self, and_=value)
 
     def __str__(self) -> str:
         s = ""
@@ -142,9 +141,7 @@ class BitmaskOp:
     match: bool = False
 
     def set_and(self, value: bool) -> Self:
-        self.and_ = value
-
-        return self
+        return dataclasses.replace(self, and_=value)
 
     def __str__(self) -> str:
         s = ""
