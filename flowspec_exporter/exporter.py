@@ -139,14 +139,14 @@ async def metrics(target: str):
         active_filters = {entry.str_filter() for entry in entries}
 
         for i in router.filters - active_filters:
-            router.matched_packets.labels(filter=i).remove()
-            router.matched_bytes.labels(filter=i).remove()
+            router.matched_packets.remove(i)
+            router.matched_bytes.remove(i)
 
-            router.transmitted_packets.labels(filter=i).remove()
-            router.transmitted_bytes.labels(filter=i).remove()
+            router.transmitted_packets.remove(i)
+            router.transmitted_bytes.remove(i)
 
-            router.dropped_packets.labels(filter=i).remove()
-            router.dropped_bytes.labels(filter=i).remove()
+            router.dropped_packets.remove(i)
+            router.dropped_bytes.remove(i)
 
         for entry in entries:
             filter = entry.str_filter()
@@ -168,7 +168,7 @@ async def metrics(target: str):
             if (dropped_bytes := entry.dropped_bytes) is not None:
                 router.dropped_bytes.labels(filter=filter).set(dropped_bytes)
 
-        router.filters.update(active_filters)
+        router.filters = active_filters
 
     data = generate_latest(router.collector_registry)
 
