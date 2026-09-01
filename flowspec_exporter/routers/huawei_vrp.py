@@ -260,6 +260,4 @@ async def parse_flow_spec_huawei_vrp(
 
         logger.debug("Parsed FlowSpec: %s", flowspec)
 
-        flowspecs.append(flowspec)
-
     return flowspecs
