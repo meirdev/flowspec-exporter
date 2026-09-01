@@ -53,7 +53,7 @@ def parse_flows(data: str) -> list[FlowSpec]:
             if action_match:
                 if action_match.group("action") == "Drop":
                     flowspec.action = Action.DISCARD
-                elif action_match.group("action").startswith("Policy"):
+                elif action_match.group("action").startswith("Police"):
                     flowspec.action = Action.RATE_LIMIT
                     flowspec.rate_limit_bps = 0
 
